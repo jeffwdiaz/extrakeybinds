@@ -1,0 +1,5 @@
+# Project Zomboid Mod Development .gitignore
+
+media/
+.cursor/
+docs/
