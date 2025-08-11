@@ -11,11 +11,19 @@
 1. Drink Water - Quickly drink from nearby sinks or water bottles in your inventory
 2. Read All Books - Automatically read all unread books in your inventory, containers, and 3x3 area around you
 
-Keybinds can be configured in Options > Key Bindings:
-- Drink Water: No default (unbound)
-- Read All Books: Default key is R
+CONFIGURATION: Use the native Build 42 mod options system!
+- Go to Options > Mod Options > Extra Keybinds
+- Configure keybinds and reading categories
+- Settings automatically save between sessions
 
-Compatibility: Tested and working with Build 42. Not tested with Build 41.
+FEATURES:
+- Native B42 mod options integration
+- Customizable reading categories (magazines, skill books, recipes, etc.)
+- Smart book filtering (only reads books you can benefit from)
+- Area scanning (3x3 around player)
+- Container support (bags, shelves, etc.)
+
+Compatibility: Build 42 native. Uses official PZ mod options API.
 
 Future Features:
 - Wash All button for cleaning items
