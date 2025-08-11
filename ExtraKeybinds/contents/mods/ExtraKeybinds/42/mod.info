@@ -1,10 +1,8 @@
-name=Extra KeyBinds
+name=Extra Keybinds Development
+id=ExtraKeybindsDev
+author=fireblanket
+description=Adds useful keybinds for common actions. Currently includes two keybinds: drink water to quickly drink from nearby sinks or water bottles in your inventory, and read all books to automatically read all unread books in your inventory and nearby area. This is my first mod, so there are bound to be bugs. Feedback welcome!
+versionMin=42.0.0
+modversion=1.1
 poster=poster.png
 icon=icon.png
-id=ExtraKeyBinds
-description=Adds useful keybinds for common actions. Currently includes two keybinds: drink water to quickly drink from nearby sinks or water bottles in your inventory, and read all books to automatically read all unread books in your inventory and nearby area. This is my first mod, so there are bound to be bugs. Feedback welcome!
-map=false
-serverOnly=false
-clientOnly=true
-library=false
-version=1.1
