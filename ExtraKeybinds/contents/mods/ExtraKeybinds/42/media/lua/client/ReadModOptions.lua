@@ -7,10 +7,9 @@ require "PZAPI/ModOptions"
 local ExtraKeybindsOptions = PZAPI.ModOptions:create("ExtraKeybinds", "Extra Keybinds")
 
 -- Add title and description
-ExtraKeybindsOptions:addTitle("Read All Books Settings")
-ExtraKeybindsOptions:addDescription("Configure which types of literature to read with the Read All keybind.")
+ExtraKeybindsOptions:addDescription("Configure which types of literature to read with the Read All key binding.")
 
-ExtraKeybindsOptions:addSeparator()
+ExtraKeybindsOptions:addDescription("===== Literature Categories ====")
 
 -- Literature category options
 ExtraKeybindsOptions:addTickBox("enableLeisure", "Read Leisure Material", true, 
@@ -26,10 +25,10 @@ ExtraKeybindsOptions:addTickBox("enableSkillBooks", "Read Skill Books", false,
 ExtraKeybindsOptions:addTickBox("enableSeedPackets", "Read Seed Packets", false, 
     "Empty seed packets that teach farming seasons")
 
-ExtraKeybindsOptions:addSeparator()
+ExtraKeybindsOptions:addDescription("===== Key Bindings =====")
 
 -- Keybind option
-ExtraKeybindsOptions:addKeyBind("readAllKeybind", "Read All Books Keybind", 82, -- Default: R key
+ExtraKeybindsOptions:addKeyBind("readAllKeybind", "Read All", 82, -- Default: R key
     "Keybind to trigger reading all selected literature types")
 
 -- Global access to options

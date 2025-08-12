@@ -1,12 +1,14 @@
--- Extra Keybinds Mod - Read All Unread Books
--- Scans the player inventory (recursively) and queues timed actions to read all unread books.
+-- Extra Keybinds Mod - Read All Books with Category Options
+-- Enhanced version of ReadAll.lua with player-configurable literature categories
 
 require "TimedActions/ISBaseTimedAction"
 require "TimedActions/ISReadABook"
 require "TimedActions/ISInventoryTransferAction"
 require "TimedActions/ISGrabItemAction"
+require "ReadModOptions"
+require "ReadCategories"
 
--- Use the game's own literature read detection logic
+-- Use the game's own literature read detection logic (from original ReadAll.lua)
 local function isLiteratureRead(playerObj, item)
     if not item then return false end
     if not item:IsLiterature() then return false end
@@ -28,6 +30,7 @@ local function isLiteratureRead(playerObj, item)
     return false
 end
 
+-- Enhanced readable book check with category filtering
 local function isReadableBook(item)
     if not item then return false end
     if not item.getCategory then return false end
@@ -60,6 +63,11 @@ local function isReadableBook(item)
     -- Use the game's own validation logic to check if already read
     if isLiteratureRead(player, item) then
         return false -- Already read
+    end
+    
+    -- NEW: Check if this item category is enabled in settings
+    if not ExtraKeybindsCategories.shouldReadItem(item) then
+        return false -- Category not enabled by player
     end
     
     -- Check if the book is actually readable (has pages or is a regular book)
@@ -142,8 +150,6 @@ local function collectBooksFromSquare(square, accumulator)
     local worldObjects = square:getWorldObjects()
     if not worldObjects then return end
     
-
-    
     for i = 0, worldObjects:size() - 1 do
         local worldObj = worldObjects:get(i)
         if worldObj then
@@ -174,7 +180,7 @@ local function collectBooksFromSquare(square, accumulator)
 end
 
 -- Public function: reads all unread books everywhere (inventory, containers, floor, 3x3 area)
-function ExtraKeybinds_ReadAllUnreadBooks()
+function ExtraKeybinds_ReadAllBooksWithOptions()
     local player = getPlayer()
     if not player then return end
 
@@ -228,12 +234,15 @@ function ExtraKeybinds_ReadAllUnreadBooks()
     end
 end
 
--- Optional: key handler hook (requires key binding to be registered elsewhere)
+-- Key handler using mod options keybind
 local function readAllKeyHandler(key)
     if isGamePaused() then return end
     if key == nil then return end
-    if getCore():isKey("ReadAllBooksKey", key) then
-        ExtraKeybinds_ReadAllUnreadBooks()
+    
+    -- Use the keybind from mod options instead of game keybinds
+    local configuredKey = ExtraKeybindsSettings.getReadAllKeybind()
+    if key == configuredKey then
+        ExtraKeybinds_ReadAllBooksWithOptions()
     end
 end
 
