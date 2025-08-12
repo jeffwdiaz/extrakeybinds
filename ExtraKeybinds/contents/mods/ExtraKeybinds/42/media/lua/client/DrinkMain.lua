@@ -1,5 +1,6 @@
 -- Better Simple Drink Hotkey Mod - Using Proper PZ API
 require "ISUI/ISInventoryPaneContextMenu"
+require "EKModOptions"
 
 local function drink()
     local player = getPlayer()
@@ -136,12 +137,14 @@ local function drink()
     end
 end
 
--- Key handler
+-- Key handler using mod options keybind
 local function drinkButtonHandler(key)
     if isGamePaused() then return end
     if key == nil then return end
     
-    if getCore():isKey("DrinkWaterKey", key) then
+    -- Use the keybind from mod options instead of game keybinds
+    local configuredKey = ExtraKeybindsSettings.getDrinkWaterKeybind()
+    if key == configuredKey then
         drink()
     end
 end

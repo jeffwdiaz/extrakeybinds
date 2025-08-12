@@ -27,9 +27,12 @@ ExtraKeybindsOptions:addTickBox("enableSeedPackets", "Read Seed Packets", false,
 
 ExtraKeybindsOptions:addDescription("===== Key Bindings =====")
 
--- Keybind option
-ExtraKeybindsOptions:addKeyBind("readAllKeybind", "Read All", 82, -- Default: R key
-    "Keybind to trigger reading all selected literature types")
+-- Keybind options
+ExtraKeybindsOptions:addKeyBind("readAllKeybind", "Read All Books", 82, -- Default: R key
+    "Key binding to trigger reading all selected literature types")
+
+ExtraKeybindsOptions:addKeyBind("drinkWaterKeybind", "Drink Water", 84, -- Default: T key
+    "Key binding to automatically drink from nearby sources or inventory")
 
 -- Global access to options
 ExtraKeybindsModOptions = ExtraKeybindsOptions
@@ -55,4 +58,8 @@ end
 
 function ExtraKeybindsSettings.getReadAllKeybind()
     return ExtraKeybindsModOptions:getOption("readAllKeybind"):getValue()
+end
+
+function ExtraKeybindsSettings.getDrinkWaterKeybind()
+    return ExtraKeybindsModOptions:getOption("drinkWaterKeybind"):getValue()
 end

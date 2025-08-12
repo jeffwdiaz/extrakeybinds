@@ -5,7 +5,7 @@ require "TimedActions/ISBaseTimedAction"
 require "TimedActions/ISReadABook"
 require "TimedActions/ISInventoryTransferAction"
 require "TimedActions/ISGrabItemAction"
-require "ReadModOptions"
+require "EKModOptions"
 require "ReadCategories"
 
 -- Use the game's own literature read detection logic (from original ReadAll.lua)

@@ -1,7 +1,7 @@
 -- Extra Keybinds Mod - Literature Categorization System
 -- Categorizes literature items based on their Item IDs and properties
 
-require "ReadModOptions"
+require "EKModOptions"
 
 ExtraKeybindsCategories = {}
 
