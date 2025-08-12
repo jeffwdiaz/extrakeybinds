@@ -8,6 +8,31 @@ require "TimedActions/ISGrabItemAction"
 require "EKModOptions"
 require "ReadCategories"
 
+-- Helper: detect if the player is currently holding a firearm
+local function isPlayerHoldingGun(player)
+    if not player then return false end
+
+    local function isGun(item)
+        if not item then return false end
+        if instanceof and instanceof(item, "HandWeapon") then
+            if item.isAimedFirearm and item:isAimedFirearm() then return true end
+            if item.getAmmoType and item:getAmmoType() then return true end
+        end
+        return false
+    end
+
+    local primary = player.getPrimaryHandItem and player:getPrimaryHandItem() or nil
+    local secondary = player.getSecondaryHandItem and player:getSecondaryHandItem() or nil
+    if isGun(primary) or isGun(secondary) then return true end
+
+    if player.getPrimaryWeapon then
+        local pw = player:getPrimaryWeapon()
+        if isGun(pw) then return true end
+    end
+
+    return false
+end
+
 -- Use the game's own literature read detection logic (from original ReadAll.lua)
 local function isLiteratureRead(playerObj, item)
     if not item then return false end
@@ -116,6 +141,13 @@ end
 local function queueReadForItem(player, item, originalContainer)
     if not player or not item then return end
 
+    -- Safety: optionally skip if holding a firearm
+    if ExtraKeybindsSettings and ExtraKeybindsSettings.getDisableReadWhenArmed and ExtraKeybindsSettings.getDisableReadWhenArmed() then
+        if isPlayerHoldingGun(player) then
+            return
+        end
+    end
+
     -- Skip if player cannot possibly read now (these checks mirror ISReadABook:isValid())
     if player:getTraits() and player:getTraits():isIlliterate() then return end
     if player.tooDarkToRead and player:tooDarkToRead() then return end
@@ -184,6 +216,13 @@ function ExtraKeybinds_ReadAllBooksWithOptions()
     local player = getPlayer()
     if not player then return end
 
+    -- Safety: optionally skip if holding a firearm
+    if ExtraKeybindsSettings and ExtraKeybindsSettings.getDisableReadWhenArmed and ExtraKeybindsSettings.getDisableReadWhenArmed() then
+        if isPlayerHoldingGun(player) then
+            return
+        end
+    end
+
     local unreadBooks = {}
     local playerSquare = player:getSquare()
     if not playerSquare then return end
@@ -241,7 +280,7 @@ local function readAllKeyHandler(key)
     
     -- Use the keybind from mod options instead of game keybinds
     local configuredKey = ExtraKeybindsSettings.getReadAllKeybind()
-    if key == configuredKey then
+    if configuredKey and configuredKey > 0 and key == configuredKey then
         ExtraKeybinds_ReadAllBooksWithOptions()
     end
 end

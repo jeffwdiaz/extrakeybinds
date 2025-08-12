@@ -144,7 +144,7 @@ local function drinkButtonHandler(key)
 
     -- Use the keybind from mod options
     local configuredKey = ExtraKeybindsSettings and ExtraKeybindsSettings.getDrinkKeybind and ExtraKeybindsSettings.getDrinkKeybind()
-    if configuredKey and key == configuredKey then
+    if configuredKey and configuredKey > 0 and key == configuredKey then
         drink()
     end
 end

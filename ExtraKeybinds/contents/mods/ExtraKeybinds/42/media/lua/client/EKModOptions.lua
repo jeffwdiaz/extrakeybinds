@@ -7,32 +7,66 @@ require "PZAPI/ModOptions"
 local ExtraKeybindsOptions = PZAPI.ModOptions:create("ExtraKeybinds", "Extra Keybinds")
 
 -- Add title and description
-ExtraKeybindsOptions:addDescription("Configure which types of literature to read with the Read All key binding.")
+ExtraKeybindsOptions:addDescription(
+    "- [ Configure which types of literature to read with the Read All key binding ] -")
 
-ExtraKeybindsOptions:addDescription("===== Literature Categories ====")
+-- * ---------------------------------------------------------------------------
+-- * Literature category options
 
--- Literature category options
-ExtraKeybindsOptions:addTickBox("enableLeisure", "Read Leisure Material", true, 
-    "Entertainment magazines, books, and comics (HottieZ, novels, comic books, etc.)")
-    
+ExtraKeybindsOptions:addTickBox(
+    "enableSkillBooks",
+    "Read Skill Books",
+    true,
+    "Books that provide skill experience multipliers"
+)
 
-ExtraKeybindsOptions:addTickBox("enableRecipeMagazines", "Read Recipe Magazines", false, 
-    "Magazines that teach crafting recipes (Tailoring, Smithing, Cooking, etc.)")
+ExtraKeybindsOptions:addTickBox(
+    "enableRecipeMagazines",
+    "Read Recipe Magazines",
+    true,
+    "Magazines that teach crafting recipes (Tailoring, Smithing, Cooking, etc.)"
+)
 
-ExtraKeybindsOptions:addTickBox("enableSkillBooks", "Read Skill Books", false, 
-    "Books that provide skill experience multipliers")
+ExtraKeybindsOptions:addTickBox(
+    "enableLeisure",
+    "Read Leisure Material",
+    false,
+    "Entertainment magazines, books, and comics (HottieZ, novels, comic books, etc.)"
+)
 
-ExtraKeybindsOptions:addTickBox("enableSeedPackets", "Read Seed Packets", false, 
-    "Empty seed packets that teach farming seasons")
+ExtraKeybindsOptions:addTickBox(
+    "enableSeedPackets",
+    "Read Seed Packets",
+    false,
+    "Empty seed packets that teach farming seasons"
+)
 
-ExtraKeybindsOptions:addDescription("===== Key Bindings =====")
+-- General safety/behavior conditions
+ExtraKeybindsOptions:addTickBox(
+    "disableReadWhenArmed",
+    "Skip reading when holding a firearm",
+    true,
+    "Prevents auto-reading while a firearm is equipped in hands"
+)
 
--- Key binding options
-ExtraKeybindsOptions:addKeyBind("readAllKeybind", "Read All", 82, -- Default: R key
-    "Key binding to trigger reading all selected literature types")
+-- * ---------------------------------------------------------------------------
+-- * Key binding options
 
-ExtraKeybindsOptions:addKeyBind("drinkKeybind", "Drink", 68, -- Default: D key
-    "Key binding to drink from nearby sources or bottles in inventory")
+ExtraKeybindsOptions:addDescription("- [ Key Bindings ] -")
+
+ExtraKeybindsOptions:addKeyBind(
+    "readAllKeybind",
+    "Read All",
+    82, -- Default: R key
+    "Key binding to trigger reading all selected literature types"
+)
+
+ExtraKeybindsOptions:addKeyBind(
+    "drinkKeybind",
+    "Drink",
+    0, -- Default: none
+    "Key binding to drink from nearby sources or bottles in inventory"
+)
 
 -- Global access to options
 ExtraKeybindsModOptions = ExtraKeybindsOptions
@@ -62,4 +96,8 @@ end
 
 function ExtraKeybindsSettings.getDrinkKeybind()
     return ExtraKeybindsModOptions:getOption("drinkKeybind"):getValue()
+end
+
+function ExtraKeybindsSettings.getDisableReadWhenArmed()
+    return ExtraKeybindsModOptions:getOption("disableReadWhenArmed"):getValue()
 end
