@@ -2,34 +2,40 @@
 {
 	"appid"		"108600"
 	"publishedfileid"		"3544355732"
-	"contentfolder"		"C:/Users/jeffw/Desktop/Workspace/github/inPROGRESS/projzMods/ExtraKeybinds/Contents/mods/"
+	"contentfolder"		"C:/Users/jeffw/Desktop/Workspace/github/inPROGRESS/projzMods/ExtraKeybinds/contents/"
 	"previewfile"		"C:/Users/jeffw/Desktop/Workspace/github/inPROGRESS/projzMods/ExtraKeybinds/preview.png"
 	"visibility"		"0"
 	"title"		"Extra KeyBinds"
-	"description"		"Adds useful keybinds for common actions. Currently includes two keybinds:
+	"description"		"Adds useful keybinds for common actions.
 
-1. Drink Water - Quickly drink from nearby sinks or water bottles in your inventory
-2. Read All Books - Automatically read all unread books in your inventory, containers, and 3x3 area around you
+Adds useful hotkeys for common actions. Currently includes two hotkeys:
 
-CONFIGURATION: Use the native Build 42 mod options system!
-- Go to Options > Mod Options > Extra Keybinds
-- Configure keybinds and reading categories
-- Settings automatically save between sessions
+[b]Drink Water[/b]
+- Drink from nearby sink
+- Drinks from player inventory or bag if no sink nearby
+- Returns bottle to bag
+- Default key binding : r
 
-FEATURES:
-- Native B42 mod options integration
-- Customizable reading categories (magazines, skill books, recipes, etc.)
-- Smart book filtering (only reads books you can benefit from)
-- Area scanning (3x3 around player)
-- Container support (bags, shelves, etc.)
+[b]Read All Books[/b]
+- Reads from player inventory, bags, nearby containers and floor
+- Returns book back to original place for bags and containers
+- Keeps book in player inv for books taken from floor
+- Choose which types of literature to read
+- Option to read while armed
+- Default key binding : none
 
-Compatibility: Build 42 native. Uses official PZ mod options API.
+[i]Current WIP:[/i]
+- Wash all keybind
 
-Future Features:
-- Wash All button for cleaning items
-- Eat keybind for consuming food items
+[i]Planned Features:[/i]
+- Smart eating
+- Equip/Unequip Umbrella
+- Take painkillers/beta-blockers/antidepressant
+
+[b]Known Bugs:[/b]
+- Can't return books to floor
 
 Feedback welcome!"
 
-	"changenote"		"v1.1: Added Read All Books functionality - automatically reads unread books in inventory, containers, and 3x3 area around player"
+	"changenote"		"v1.2: Read All now has configurable options"
 }
