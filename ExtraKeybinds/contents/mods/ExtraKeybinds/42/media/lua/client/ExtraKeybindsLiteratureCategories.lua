@@ -7,53 +7,88 @@ ExtraKeybindsCategories = {}
 
 -- Category detection functions based on Item IDs from items.md
 
-function ExtraKeybindsCategories.isLeisureMagazine(item)
+-- * Leisure Material (Magazines, Books, Comics)
+function ExtraKeybindsCategories.isLeisure(item)
     if not item or not item.getFullType then return false end
     
-    local itemType = item:getFullType()
-    local itemId = item:getType()
+    -- Use game properties inspired by P4HasBeenRead mod
+    local hasRecipes = item.getTeachedRecipes and item:getTeachedRecipes() ~= nil
+    local trainsSkill = item.getSkillTrained and item:getSkillTrained()
+    local skillBook = trainsSkill and SkillBook and SkillBook[trainsSkill]
     
-    -- Leisure magazines based on items.md patterns
-    -- These are entertainment magazines, not recipe-teaching ones
-    local leisureMagazinePatterns = {
-        "^Magazine$",           -- Base.Magazine  
-        "^HottieZ",            -- Base.HottieZ_New
-        "^TVMagazine$",        -- Base.TVMagazine
-        "^Magazine_",          -- Base.Magazine_Popular, Base.Magazine_Rich, etc.
-        "^MagazineCrossword$", -- Base.MagazineCrossword
-        "^MagazineWordsearch$" -- Base.MagazineWordsearch
-    }
+    -- Check mod data for print media (like P4HasBeenRead does)
+    local modData = item:hasModData() and item:getModData() or nil
+    local hasPrintMedia = modData and modData.printMedia
+    local hasLiteratureTitle = modData and modData.literatureTitle
     
-    for _, pattern in ipairs(leisureMagazinePatterns) do
+    -- Leisure material: have print media or literature title, but don't train skills or teach recipes
+    if (hasPrintMedia or hasLiteratureTitle) and not hasRecipes and not skillBook then
+        return true
+    end
+    
+    -- Fallback to pattern matching for edge cases (COMMENTED OUT FOR TESTING)
+    --[[
+    for _, pattern in ipairs(knownLeisurePatterns) do
         if string.match(itemId, pattern) then
             return true
         end
     end
+    --]]
     
     return false
 end
 
+-- * Recipe Magazines
 function ExtraKeybindsCategories.isRecipeMagazine(item)
     if not item or not item.getFullType then return false end
     
-    local itemId = item:getType()
+    -- PURE GAME LOGIC TESTING - Use only game properties
+    local hasRecipes = item.getTeachedRecipes and item:getTeachedRecipes() ~= nil
     
-    -- Recipe magazines end with Mag followed by numbers (from items.md)
-    -- Examples: TailoringMag9, SmithingMag8, CookingMag1, etc.
+    -- TODO: Need to find pure game property to identify magazines vs books
+    -- For now, any item with recipes could be a recipe magazine
+    -- (Commenting out name-based detection for testing)
+    --[[
+    if hasRecipes then
+        local isMagazineType = itemId:find("Magazine") ~= nil or itemId:find("Mag") ~= nil
+        if isMagazineType then
+            return true
+        end
+    end
+    --]]
+    
+    -- Pure logic: if it has recipes, assume it could be a recipe magazine
+    if hasRecipes then
+        return true
+    end
+    
+    -- Fallback pattern for known recipe magazines (COMMENTED OUT FOR TESTING)
+    --[[
     if string.match(itemId, "Mag%d+$") then
         return true
     end
+    --]]
     
     return false
 end
 
+-- * Skill Books
 function ExtraKeybindsCategories.isSkillBook(item)
     if not item or not item.getFullType then return false end
     
-    local itemId = item:getType()
+    -- Use game properties: Skill books train skills AND are in SkillBook table
+    local trainsSkill = item.getSkillTrained and item:getSkillTrained()
     
-    -- Skill books follow pattern: Book[Skill][Level] (from items.md)
-    -- Examples: BookFarming1, BookCarpentry2, BookElectrician3, etc.
+    if trainsSkill then
+        -- Verify it's actually a skill book using the game's SkillBook table
+        local skillBook = SkillBook and SkillBook[trainsSkill]
+        if skillBook then
+            return true
+        end
+    end
+    
+    -- Fallback patterns for known skill books (COMMENTED OUT FOR TESTING)
+    --[[
     local skillBookPatterns = {
         "^BookFarming%d+$",      -- Agriculture books
         "^BookAiming%d+$",       -- Aiming books
@@ -87,56 +122,44 @@ function ExtraKeybindsCategories.isSkillBook(item)
             return true
         end
     end
+    --]]
     
     return false
 end
 
-function ExtraKeybindsCategories.isLeisureBook(item)
+-- * Seed Packets
+function ExtraKeybindsCategories.isSeedPacket(item)
     if not item or not item.getFullType then return false end
     
-    local itemId = item:getType()
+    -- PURE GAME LOGIC TESTING - Use game properties from actual seed packet definitions
+    local hasRecipes = item.getTeachedRecipes and item:getTeachedRecipes() ~= nil
+    local hasFastReadTag = item.hasTag and item:hasTag("FastRead")
+    local isLiterature = item.getCategory and item:getCategory() == "Literature"
     
-    -- Leisure books from items.md (hardcover, paperback, leatherbound)
-    local leisureBookPatterns = {
-        "^Book$",              -- Generic book
-        "^Book_",              -- Book_AdventureNonFiction, Book_Art, etc.
-        "^Paperback",          -- Paperback, Paperback_Art, etc.
-        "^BookFancy_",         -- Leatherbound books
-        "^HollowBook",         -- Hollow books
-        "^HollowFancyBook$",   -- Hollow leatherbound book
-        "^ChildsPictureBook$", -- Picture books
-        "^ComicBook",          -- Comic books
-        "^RPGmanual$"          -- RPG Manual
-    }
-    
-    for _, pattern in ipairs(leisureBookPatterns) do
-        if string.match(itemId, pattern) then
-            return true
+    -- Seed packets are Literature items with FastRead tag and recipes
+    if isLiterature and hasFastReadTag and hasRecipes then
+        -- Check if the recipes are farming-related (contain "Growing Season")
+        local recipes = item:getTeachedRecipes()
+        if recipes then
+            for i = 0, recipes:size() - 1 do
+                local recipe = recipes:get(i)
+                if recipe and string.find(recipe, "Growing Season") then
+                    return true
+                end
+            end
         end
     end
     
     return false
 end
 
-function ExtraKeybindsCategories.isSeedPacket(item)
-    if not item or not item.getFullType then return false end
-    
-    local itemId = item:getType()
-    
-    -- Seed packets from items.md (both empty and full)
-    if string.match(itemId, "BagSeed$") or string.match(itemId, "BagSeed_Empty$") then
-        return true
-    end
-    
-    return false
-end
-
+-- * Main Category Check
 -- Main function to check if an item should be read based on current settings
 function ExtraKeybindsCategories.shouldReadItem(item)
     if not item then return false end
     
     -- Check each category based on user settings
-    if ExtraKeybindsSettings.getLeisureMagazinesEnabled() and ExtraKeybindsCategories.isLeisureMagazine(item) then
+    if ExtraKeybindsSettings.getLeisureEnabled() and ExtraKeybindsCategories.isLeisure(item) then
         return true
     end
     
@@ -145,10 +168,6 @@ function ExtraKeybindsCategories.shouldReadItem(item)
     end
     
     if ExtraKeybindsSettings.getSkillBooksEnabled() and ExtraKeybindsCategories.isSkillBook(item) then
-        return true
-    end
-    
-    if ExtraKeybindsSettings.getLeisureBooksEnabled() and ExtraKeybindsCategories.isLeisureBook(item) then
         return true
     end
     

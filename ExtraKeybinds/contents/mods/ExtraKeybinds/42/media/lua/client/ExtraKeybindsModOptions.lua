@@ -13,17 +13,15 @@ ExtraKeybindsOptions:addDescription("Configure which types of literature to read
 ExtraKeybindsOptions:addSeparator()
 
 -- Literature category options
-ExtraKeybindsOptions:addTickBox("enableLeisureMagazines", "Read Leisure Magazines", true, 
-    "Entertainment magazines like HottieZ, TV Magazine, Popular Magazine, etc.")
+ExtraKeybindsOptions:addTickBox("enableLeisure", "Read Leisure Material", true, 
+    "Entertainment magazines, books, and comics (HottieZ, novels, comic books, etc.)")
+    
 
 ExtraKeybindsOptions:addTickBox("enableRecipeMagazines", "Read Recipe Magazines", false, 
     "Magazines that teach crafting recipes (Tailoring, Smithing, Cooking, etc.)")
 
 ExtraKeybindsOptions:addTickBox("enableSkillBooks", "Read Skill Books", false, 
     "Books that provide skill experience multipliers")
-
-ExtraKeybindsOptions:addTickBox("enableLeisureBooks", "Read Leisure Books", false, 
-    "Entertainment books (hardcover, paperback, leatherbound) for reducing boredom")
 
 ExtraKeybindsOptions:addTickBox("enableSeedPackets", "Read Seed Packets", false, 
     "Empty seed packets that teach farming seasons")
@@ -40,8 +38,8 @@ ExtraKeybindsModOptions = ExtraKeybindsOptions
 -- Helper functions to check option values
 ExtraKeybindsSettings = {}
 
-function ExtraKeybindsSettings.getLeisureMagazinesEnabled()
-    return ExtraKeybindsModOptions:getOption("enableLeisureMagazines"):getValue()
+function ExtraKeybindsSettings.getLeisureEnabled()
+    return ExtraKeybindsModOptions:getOption("enableLeisure"):getValue()
 end
 
 function ExtraKeybindsSettings.getRecipeMagazinesEnabled()
@@ -50,10 +48,6 @@ end
 
 function ExtraKeybindsSettings.getSkillBooksEnabled()
     return ExtraKeybindsModOptions:getOption("enableSkillBooks"):getValue()
-end
-
-function ExtraKeybindsSettings.getLeisureBooksEnabled()
-    return ExtraKeybindsModOptions:getOption("enableLeisureBooks"):getValue()
 end
 
 function ExtraKeybindsSettings.getSeedPacketsEnabled()

@@ -11,21 +11,24 @@ function ExtraKeybindsTest.testLeisureMagazineDetection()
     
     -- Test items that should be detected as leisure magazines
     local testItems = {
-        {id = "Magazine", expected = true, desc = "Generic magazine"},
-        {id = "HottieZ_New", expected = true, desc = "HottieZ magazine"},
-        {id = "TVMagazine", expected = true, desc = "TV Magazine"},
-        {id = "Magazine_Popular", expected = true, desc = "Popular Magazine"},
-        {id = "MagazineCrossword", expected = true, desc = "Crossword Magazine"},
-        {id = "TailoringMag9", expected = false, desc = "Recipe magazine (should NOT match)"},
-        {id = "BookFarming1", expected = false, desc = "Skill book (should NOT match)"},
-        {id = "Paperback", expected = false, desc = "Paperback book (should NOT match)"}
+        {id = "Magazine", hasRecipes = false, expected = true, desc = "Generic magazine"},
+        {id = "HottieZ_New", hasRecipes = false, expected = true, desc = "HottieZ magazine"},
+        {id = "TVMagazine", hasRecipes = false, expected = true, desc = "TV Magazine"},
+        {id = "Magazine_Popular", hasRecipes = false, expected = true, desc = "Popular Magazine"},
+        {id = "MagazineCrossword", hasRecipes = false, expected = true, desc = "Crossword Magazine"},
+        {id = "TailoringMag9", hasRecipes = true, expected = false, desc = "Recipe magazine (should NOT match)"},
+        {id = "BookFarming1", hasRecipes = false, expected = false, desc = "Skill book (should NOT match)"},
+        {id = "Paperback", hasRecipes = false, expected = false, desc = "Paperback book (should NOT match)"}
     }
     
     for _, test in ipairs(testItems) do
-        -- Create a mock item for testing
+        -- Create a mock item for testing with game properties
         local mockItem = {
             getFullType = function() return "Base." .. test.id end,
-            getType = function() return test.id end
+            getType = function() return test.id end,
+            getTeachedRecipes = function() 
+                return test.hasRecipes and {} or nil
+            end
         }
         
         local result = ExtraKeybindsCategories.isLeisureMagazine(mockItem)
