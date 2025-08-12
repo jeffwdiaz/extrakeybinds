@@ -137,14 +137,14 @@ local function drink()
     end
 end
 
--- Key handler using mod options keybind
+-- Key handler
 local function drinkButtonHandler(key)
     if isGamePaused() then return end
     if key == nil then return end
-    
-    -- Use the keybind from mod options instead of game keybinds
-    local configuredKey = ExtraKeybindsSettings.getDrinkWaterKeybind()
-    if key == configuredKey then
+
+    -- Use the keybind from mod options
+    local configuredKey = ExtraKeybindsSettings and ExtraKeybindsSettings.getDrinkKeybind and ExtraKeybindsSettings.getDrinkKeybind()
+    if configuredKey and key == configuredKey then
         drink()
     end
 end
