@@ -2,10 +2,127 @@
 
 require "EKModOptions"
 require "ISUI/ISWorldObjectContextMenu"
+require "ISUI/ISInventoryPaneContextMenu"
+require "TimedActions/ISBaseTimedAction"
+require "TimedActions/ISInventoryTransferAction"
+require "TimedActions/ISCleanBandage"
 
 local function logWash(message)
     -- Printed messages appear in the console and log files
     print("[ExtraKeybinds][Wash] " .. tostring(message))
+end
+
+-- Find all dirty bandages/rags in inventory - DEBUG VERSION
+local function findDirtyItems(player)
+    if not player then 
+        logWash("DEBUG: No player provided")
+        return {} 
+    end
+    local inv = player:getInventory()
+    if not inv then 
+        logWash("DEBUG: No inventory found")
+        return {} 
+    end
+
+    -- DEBUG: Check what getAllTag actually returns
+    local dirtyItems = inv:getAllTag("CanBeWashed", ArrayList.new())
+    logWash(string.format("DEBUG: getAllTag('CanBeWashed') returned %d items", dirtyItems:size()))
+    
+    -- DEBUG: Also check for the specific dirty item types manually
+    local manualCheck = {
+        ["Base.BandageDirty"] = inv:getCountTypeRecurse("Base.BandageDirty"),
+        ["Base.DenimStripsDirty"] = inv:getCountTypeRecurse("Base.DenimStripsDirty"), 
+        ["Base.LeatherStripsDirty"] = inv:getCountTypeRecurse("Base.LeatherStripsDirty"),
+        ["Base.RippedSheetsDirty"] = inv:getCountTypeRecurse("Base.RippedSheetsDirty")
+    }
+    
+    for itemType, count in pairs(manualCheck) do
+        logWash(string.format("DEBUG: Manual check - %s: %d items", itemType, count))
+    end
+    
+    local items = {}
+    
+    -- Convert to Lua table and log
+    for i = 0, dirtyItems:size() - 1 do
+        local item = dirtyItems:get(i)
+        logWash(string.format("DEBUG: getAllTag item %d: %s (jobDelta: %s)", i, item:getFullType(), tostring(item:getJobDelta())))
+        if item:getJobDelta() == 0 then -- Not already being washed
+            logWash(string.format("Found dirty item: %s", item:getFullType()))
+            table.insert(items, item)
+        end
+    end
+
+    logWash(string.format("DEBUG: Returning %d items for cleaning", #items))
+    return items
+end
+
+-- Clean all dirty bandages/strips/rags in strict order, one-by-one with returns.
+local function queueCleanBandagesAndRags(player, waterObject)
+    logWash("DEBUG: queueCleanBandagesAndRags called")
+    
+    if not player then 
+        logWash("DEBUG: No player provided to queueCleanBandagesAndRags")
+        return 
+    end
+    if not waterObject then 
+        logWash("DEBUG: No waterObject provided to queueCleanBandagesAndRags")
+        return 
+    end
+    
+    -- Hard limit to adjacent object water sources only (natural water later)
+    if not waterObject.getSquare then
+        logWash("DEBUG: waterObject has no getSquare method")
+        return
+    end
+    if not waterObject:hasWater() then
+        logWash("DEBUG: waterObject has no water")
+        return
+    end
+    if waterObject:getFluidAmount() <= 0 then
+        logWash("DEBUG: waterObject fluid amount <= 0")
+        return
+    end
+
+    logWash("DEBUG: Water source validation passed")
+
+    -- Find all dirty items
+    local dirtyItems = findDirtyItems(player)
+    logWash(string.format("DEBUG: findDirtyItems returned %d items", #dirtyItems))
+    
+    if #dirtyItems == 0 then
+        logWash("No items available to clean")
+        return
+    end
+
+    -- Soap is NOT needed for bandage/rag cleaning (only uses water)
+    logWash("DEBUG: Skipping soap list for bandages - they only need water")
+    
+    -- Announce what we're doing
+    player:Say("Cleaning bandages and rags...")
+    logWash(string.format("Found %d items to clean", #dirtyItems))
+
+    -- Use vanilla wash clothing handler (same pattern as wash self)
+    logWash("DEBUG: About to call luautils.walkAdj")
+    if not luautils.walkAdj(player, waterObject:getSquare(), true) then
+        logWash("Walk adjacent failed")
+        return
+    end
+    logWash("DEBUG: walkAdj succeeded")
+
+    -- Queue the wash action with the list of items (no soap needed for bandages)
+    logWash("DEBUG: About to call ISWorldObjectContextMenu.onWashClothing")
+    logWash(string.format("DEBUG: Parameters - player: %s, waterObject: %s, dirtyItems: %d items", 
+        tostring(player), tostring(waterObject), #dirtyItems))
+    
+    local ok, err = pcall(function()
+        ISWorldObjectContextMenu.onWashClothing(player, waterObject, {}, dirtyItems, nil, false)
+    end)
+    
+    if ok then
+        logWash("Wash actions queued successfully")
+    else
+        logWash("ERROR calling onWashClothing: " .. tostring(err))
+    end
 end
 
 -- Build a soap/cleaning list compatible with vanilla handlers
@@ -238,24 +355,26 @@ local function washHotkeyHandler(key)
             local okReq, req = pcall(function() return ISWashYourself.GetRequiredWater(player) end)
             if okReq then requiredWater = req else requiredWater = 0 end
         end
-        logWash("Required water to wash self: " .. tostring(requiredWater))
-        if not requiredWater or requiredWater <= 0 then
-            logWash("Nothing to wash (self); skipping handler call")
-            return
-        end
+		logWash("Required water to wash self: " .. tostring(requiredWater))
+		if requiredWater and requiredWater > 0 then
+			logWash(string.format("Attempting wash yourself at %s (%d,%d,%d)", label, found.square:getX(), found.square:getY(), found.square:getZ()))
+			local soapList = buildSoapList(player)
+			local ok, err = pcall(function()
+				-- Common Build 42 signature: (playerObj, sinkObject, soapList)
+				ISWorldObjectContextMenu.onWashYourself(player, found.object, soapList)
+			end)
+			if ok then
+				logWash("Wash yourself handler invoked (object source)")
+				player:Say("Washing yourself...")
+			else
+				logWash("Wash yourself handler failed: " .. tostring(err))
+			end
+		else
+			logWash("Nothing to wash (self); skipping handler call")
+		end
 
-        logWash(string.format("Attempting wash yourself at %s (%d,%d,%d)", label, found.square:getX(), found.square:getY(), found.square:getZ()))
-        local soapList = buildSoapList(player)
-        local ok, err = pcall(function()
-            -- Common Build 42 signature: (playerObj, sinkObject, soapList)
-            ISWorldObjectContextMenu.onWashYourself(player, found.object, soapList)
-        end)
-        if ok then
-            logWash("Wash yourself handler invoked (object source)")
-            player:Say("Washing yourself...")
-        else
-            logWash("Wash yourself handler failed: " .. tostring(err))
-        end
+		-- Step 3: Clean bandages and rags (per-item transfer/clean/return) using vanilla ISCLeanBandage
+		queueCleanBandagesAndRags(player, found.object)
     elseif found.kind == "natural" then
         -- Natural water handling will be added in a later step
         logWash("Natural water washing not implemented yet; skipping")
