@@ -68,6 +68,15 @@ ExtraKeybindsOptions:addKeyBind(
     "Key binding to drink from nearby sources or bottles in inventory"
 )
 
+-- Wash All feature keybind (default: Left Arrow)
+-- Note: Project Zomboid uses LWJGL key codes in most cases; Left Arrow is commonly 203.
+ExtraKeybindsOptions:addKeyBind(
+    "washAllKeybind",
+    "Wash All",
+    203, -- Default: Left Arrow
+    "Key binding to detect water sources and wash (feature stages)"
+)
+
 -- Global access to options
 ExtraKeybindsModOptions = ExtraKeybindsOptions
 
@@ -100,4 +109,8 @@ end
 
 function ExtraKeybindsSettings.getDisableReadWhenArmed()
     return ExtraKeybindsModOptions:getOption("disableReadWhenArmed"):getValue()
+end
+
+function ExtraKeybindsSettings.getWashAllKeybind()
+    return ExtraKeybindsModOptions:getOption("washAllKeybind"):getValue()
 end

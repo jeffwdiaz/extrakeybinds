@@ -1,7 +1,3 @@
 # Project Zomboid Mod Development .gitignore
 
-.cursor/
-
-GameFilesForReference/
 docs/
-archive/

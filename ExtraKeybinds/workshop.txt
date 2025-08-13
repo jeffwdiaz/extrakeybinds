@@ -14,7 +14,7 @@ Adds useful hotkeys for common actions. Currently includes two hotkeys:
 - Drink from nearby sink
 - Drinks from player inventory or bag if no sink nearby
 - Returns bottle to bag
-- Default key binding : r
+- Default key binding : none
 
 [b]Read All Books[/b]
 - Reads from player inventory, bags, nearby containers and floor
@@ -22,7 +22,7 @@ Adds useful hotkeys for common actions. Currently includes two hotkeys:
 - Keeps book in player inv for books taken from floor
 - Choose which types of literature to read
 - Option to read while armed
-- Default key binding : none
+- Default key binding : r
 
 [i]Current WIP:[/i]
 - Wash all keybind
