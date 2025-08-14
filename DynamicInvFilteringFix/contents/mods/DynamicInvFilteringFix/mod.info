@@ -1,0 +1,5 @@
+name=Dynamic Inventory Filtering Fix
+id=DynamicInventoryFilteringFix
+require=[B42]DynamicInventoryFilter
+version=1.0
+description=Moves the Dynamic Inventory Filter toolbar to a global overlay positioned above the inventory title bar to avoid overlap with other mods.

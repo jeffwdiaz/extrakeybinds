@@ -8,8 +8,8 @@ require "TimedActions/ISInventoryTransferAction"
 require "TimedActions/ISCleanBandage"
 
 local function logWash(message)
-    -- Printed messages appear in the console and log files
-    print("[ExtraKeybinds][Wash] " .. tostring(message))
+	-- Printed messages appear in the console and log files
+	print("[ExtraKeybinds][Wash] " .. tostring(message))
 end
 
 -- Find all dirty bandages/rags in inventory - DEBUG VERSION
@@ -58,32 +58,43 @@ end
 
 -- Clean all dirty bandages/strips/rags in strict order, one-by-one with returns.
 local function queueCleanBandagesAndRags(player, waterObject)
-    logWash("DEBUG: queueCleanBandagesAndRags called")
-    
-    if not player then 
-        logWash("DEBUG: No player provided to queueCleanBandagesAndRags")
-        return 
-    end
-    if not waterObject then 
-        logWash("DEBUG: No waterObject provided to queueCleanBandagesAndRags")
-        return 
-    end
-    
-    -- Hard limit to adjacent object water sources only (natural water later)
-    if not waterObject.getSquare then
-        logWash("DEBUG: waterObject has no getSquare method")
-        return
-    end
-    if not waterObject:hasWater() then
-        logWash("DEBUG: waterObject has no water")
-        return
-    end
-    if waterObject:getFluidAmount() <= 0 then
-        logWash("DEBUG: waterObject fluid amount <= 0")
-        return
-    end
+	logWash("DEBUG: queueCleanBandagesAndRags called")
+	
+	if not player then 
+		logWash("DEBUG: No player provided to queueCleanBandagesAndRags")
+		return 
+	end
+	if not waterObject then 
+		logWash("DEBUG: No waterObject provided to queueCleanBandagesAndRags")
+		return 
+	end
+	
+	-- Validate required interface for any world source (object or natural tile floor)
+	if not waterObject.getSquare then
+		logWash("DEBUG: waterObject has no getSquare method")
+		return
+	end
+	local hasHasWater = (waterObject.hasWater ~= nil)
+	local hasHasFluid = (waterObject.hasFluid ~= nil)
+	local hasGetAmount = (waterObject.getFluidAmount ~= nil)
+	local hasUseFluid = (waterObject.useFluid ~= nil)
+	logWash(string.format("DEBUG: waterObject caps - hasWater=%s, hasFluid=%s, getFluidAmount=%s, useFluid=%s",
+		tostring(hasHasWater), tostring(hasHasFluid), tostring(hasGetAmount), tostring(hasUseFluid)))
+	if not hasGetAmount then
+		logWash("DEBUG: waterObject missing getFluidAmount(); cannot proceed")
+		return
+	end
+	local okAmt, amount = pcall(function() return waterObject:getFluidAmount() end)
+	if not okAmt then
+		logWash("DEBUG: waterObject:getFluidAmount() errored; aborting")
+		return
+	end
+	if (amount or 0) <= 0 then
+		logWash("DEBUG: waterObject fluid amount <= 0")
+		return
+	end
 
-    logWash("DEBUG: Water source validation passed")
+	logWash("DEBUG: Water source validation passed")
 
     -- Find all dirty items
     local dirtyItems = findDirtyItems(player)
@@ -250,81 +261,92 @@ local function classifyWaterObject(obj)
 end
 
 local function isNaturalWaterSquare(square)
-    if not square then return false end
-    local props = square.getProperties and square:getProperties() or nil
-    if props and IsoFlagType and props.Is and props:Is(IsoFlagType.water) then
-        return true
-    end
-    -- Fallback: some builds expose water via sprite properties too
-    local spr = square.getSprite and square:getSprite() or nil
-    local sprProps = spr and spr.getProperties and spr:getProperties() or nil
-    if sprProps and IsoFlagType and sprProps.Is and sprProps:Is(IsoFlagType.water) then
-        return true
-    end
-    return false
+	if not square then return false end
+	local props = square.getProperties and square:getProperties() or nil
+	if props and IsoFlagType and props.Is and props:Is(IsoFlagType.water) then
+		return true
+	end
+	-- Fallback: some builds expose water via sprite properties too
+	local spr = square.getSprite and square:getSprite() or nil
+	local sprProps = spr and spr.getProperties and spr:getProperties() or nil
+	if sprProps and IsoFlagType and sprProps.Is and sprProps:Is(IsoFlagType.water) then
+		return true
+	end
+	return false
 end
 
 local function findAdjacentWaterSource(player)
-    if not player then return nil end
-    local playerSq = player:getSquare()
-    if not playerSq then return nil end
-    local cell = getCell()
-    if not cell then return nil end
+	if not player then return nil end
+	local playerSq = player:getSquare()
+	if not playerSq then return nil end
+	local cell = getCell()
+	if not cell then return nil end
 
-    local x0, y0, z0 = playerSq:getX(), playerSq:getY(), playerSq:getZ()
+	local x0, y0, z0 = playerSq:getX(), playerSq:getY(), playerSq:getZ()
 
-    -- Track the best object source by highest fluid amount; fallback to first natural water
-    local bestCandidate = nil
-    local bestAmount = -1
-    local naturalCandidate = nil
+	-- Track the best object source by highest fluid amount; fallback to first natural water
+	local bestCandidate = nil
+	local bestAmount = -1
+	local naturalCandidate = nil
 
-    -- Scan adjacent squares including current square
-    for dx = -1, 1 do
-        for dy = -1, 1 do
-            local sq = cell:getGridSquare(x0 + dx, y0 + dy, z0)
-            if sq and isAdjacentTo(playerSq, sq) then
-                -- Check world objects that can contain water (sinks, toilets, etc.)
-                local objects = sq:getObjects()
-                if objects then
-                    for i = 0, objects:size() - 1 do
-                        local obj = objects:get(i)
-                        if obj and obj.hasWater and obj.getFluidAmount then
-                            local ok, hasWater = pcall(function() return obj:hasWater() end)
-                            local ok2, amount = pcall(function() return obj:getFluidAmount() end)
-                            if ok and ok2 and hasWater and (amount or 0) > 0 then
-                                local label = classifyWaterObject(obj)
-                                logWash(string.format("%s found at (%d,%d,%d), amount=%s", label, sq:getX(), sq:getY(), sq:getZ(), tostring(amount)))
-                                if (amount or 0) > bestAmount then
-                                    bestAmount = amount or 0
-                                    bestCandidate = { kind = "object", square = sq, object = obj, label = label, amount = amount }
-                                end
-                            end
-                        end
-                    end
-                end
+	-- Scan adjacent squares including current square
+	for dx = -1, 1 do
+		for dy = -1, 1 do
+			local sq = cell:getGridSquare(x0 + dx, y0 + dy, z0)
+			if sq and isAdjacentTo(playerSq, sq) then
+				-- Check world objects that can contain water (sinks, toilets, barrels, etc.)
+				local objects = sq:getObjects()
+				if objects then
+					for i = 0, objects:size() - 1 do
+						local obj = objects:get(i)
+						local supportsWater = obj and (obj.hasWater ~= nil)
+						local supportsFluid = obj and (obj.hasFluid ~= nil)
+						local supportsAmount = obj and (obj.getFluidAmount ~= nil)
+						if obj and supportsAmount and (supportsWater or supportsFluid) then
+							local okAmt, amount = pcall(function() return obj:getFluidAmount() end)
+							if okAmt and (amount or 0) > 0 then
+								local label = classifyWaterObject(obj)
+								logWash(string.format("%s found at (%d,%d,%d), amount=%s (hasWater=%s, hasFluid=%s)", label, sq:getX(), sq:getY(), sq:getZ(), tostring(amount), tostring(supportsWater), tostring(supportsFluid)))
+								if (amount or 0) > bestAmount then
+									bestAmount = amount or 0
+									bestCandidate = { kind = "object", square = sq, object = obj, label = label, amount = amount }
+								end
+							end
+						end
+					end
+				end
 
-                -- Check for natural water tiles (lake/river)
-                if not naturalCandidate and isNaturalWaterSquare(sq) then
-                    logWash(string.format("Natural water found at (%d,%d,%d)", sq:getX(), sq:getY(), sq:getZ()))
-                    naturalCandidate = { kind = "natural", square = sq, label = "Lake" }
-                end
-            end
-        end
-    end
+				-- Check for natural water tiles (lake/river). If found, synthesize a water object via the floor.
+				if not naturalCandidate and isNaturalWaterSquare(sq) then
+					local floorObj = sq.getFloor and sq:getFloor() or nil
+					logWash(string.format("Natural water found at (%d,%d,%d); floorObj=%s", sq:getX(), sq:getY(), sq:getZ(), tostring(floorObj)))
+					if floorObj then
+						-- Prefer to compute amount if possible for logging/selection
+						local natAmt = nil
+						if floorObj.getFluidAmount then
+							local okN, a = pcall(function() return floorObj:getFluidAmount() end)
+							if okN then natAmt = a end
+						end
+						naturalCandidate = { kind = "object", square = sq, object = floorObj, label = "Natural Water", amount = natAmt }
+					end
+				end
+			end
+		end
+	end
 
-    if bestCandidate then
-        logWash(string.format("Selected source: %s at (%d,%d,%d), amount=%s",
-            bestCandidate.label, bestCandidate.square:getX(), bestCandidate.square:getY(), bestCandidate.square:getZ(), tostring(bestCandidate.amount)))
-        return bestCandidate
-    end
+	if bestCandidate then
+		logWash(string.format("Selected source: %s at (%d,%d,%d), amount=%s",
+			bestCandidate.label, bestCandidate.square:getX(), bestCandidate.square:getY(), bestCandidate.square:getZ(), tostring(bestCandidate.amount)))
+		return bestCandidate
+	end
 
-    if naturalCandidate then
-        logWash(string.format("Selected source: %s at (%d,%d,%d)",
-            naturalCandidate.label, naturalCandidate.square:getX(), naturalCandidate.square:getY(), naturalCandidate.square:getZ()))
-        return naturalCandidate
-    end
+	if naturalCandidate then
+		logWash(string.format("Selected source: %s at (%d,%d,%d), amount=%s",
+			naturalCandidate.label, naturalCandidate.square:getX(), naturalCandidate.square:getY(), naturalCandidate.square:getZ(), tostring(naturalCandidate.amount)))
+		return naturalCandidate
+	end
 
-    return nil
+	return nil
 end
 
 local function washHotkeyHandler(key)
@@ -347,8 +369,29 @@ local function washHotkeyHandler(key)
     local label = found.label or "Water source"
     player:Say(label .. " found")
 
-    -- Step 2a: Attempt to wash yourself using the built-in handler (auto-walk allowed by handler)
-    if found.kind == "object" and found.object and ISWorldObjectContextMenu and ISWorldObjectContextMenu.onWashYourself then
+    -- =================================================================
+    -- * STAGE 1: CLEAN BANDAGES AND RAGS FIRST
+    -- =================================================================
+    -- Clean dirty bandages, leather strips, denim strips, and ripped sheets
+    -- This happens before washing the player to ensure items are cleaned first
+    logWash("=== STAGE 1: Starting bandage and rag cleaning ===")
+    if found.object then
+    	-- Log capabilities of the selected water object
+    	local o = found.object
+    	logWash(string.format("Selected waterObject caps - hasWater=%s, hasFluid=%s, getFluidAmount=%s, useFluid=%s",
+    		tostring(o and o.hasWater ~= nil), tostring(o and o.hasFluid ~= nil), tostring(o and o.getFluidAmount ~= nil), tostring(o and o.useFluid ~= nil)))
+    	queueCleanBandagesAndRags(player, found.object)
+    else
+    	logWash("ERROR: Found source has no object; skipping Stage 1")
+    end
+
+    -- =================================================================
+    -- * STAGE 2: WASH THE PLAYER
+    -- =================================================================
+    -- After bandages/rags are queued for cleaning, wash the player's body
+    logWash("=== STAGE 2: Starting player washing ===")
+    -- Attempt to wash yourself using the built-in handler (auto-walk allowed by handler)
+    if found.object and ISWorldObjectContextMenu and ISWorldObjectContextMenu.onWashYourself then
         -- Check if there is anything to wash first
         local requiredWater = nil
         if ISWashYourself and ISWashYourself.GetRequiredWater then
@@ -357,29 +400,23 @@ local function washHotkeyHandler(key)
         end
 		logWash("Required water to wash self: " .. tostring(requiredWater))
 		if requiredWater and requiredWater > 0 then
-			logWash(string.format("Attempting wash yourself at %s (%d,%d,%d)", label, found.square:getX(), found.square:getY(), found.square:getZ()))
+			logWash(string.format("STAGE 2: Attempting wash yourself at %s (%d,%d,%d)", label, found.square:getX(), found.square:getY(), found.square:getZ()))
 			local soapList = buildSoapList(player)
 			local ok, err = pcall(function()
 				-- Common Build 42 signature: (playerObj, sinkObject, soapList)
 				ISWorldObjectContextMenu.onWashYourself(player, found.object, soapList)
 			end)
 			if ok then
-				logWash("Wash yourself handler invoked (object source)")
+				logWash("STAGE 2: Wash yourself handler invoked (object source)")
 				player:Say("Washing yourself...")
 			else
-				logWash("Wash yourself handler failed: " .. tostring(err))
+				logWash("STAGE 2: Wash yourself handler failed: " .. tostring(err))
 			end
 		else
-			logWash("Nothing to wash (self); skipping handler call")
+			logWash("STAGE 2: Nothing to wash (self); skipping handler call")
 		end
-
-		-- Step 3: Clean bandages and rags (per-item transfer/clean/return) using vanilla ISCLeanBandage
-		queueCleanBandagesAndRags(player, found.object)
-    elseif found.kind == "natural" then
-        -- Natural water handling will be added in a later step
-        logWash("Natural water washing not implemented yet; skipping")
     else
-        logWash("No compatible wash-yourself handler available")
+        logWash("No compatible wash-yourself handler available or no water object")
     end
 end
 
