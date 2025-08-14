@@ -1,24 +1,35 @@
 # ExtraKeybinds: Wash All feature (design notes)
 
+## To-do (consolidated)
+
+- [x] Register key handler on `Events.OnCustomUIKey`
+- [x] Add Mod Options key entry: "Wash All" (default Left Arrow)
+- [x] Single-file implementation in `ExtraKeybinds/contents/mods/ExtraKeybinds/42/media/lua/client/WashMain.lua`
+- [x] Implement basic water detection (adjacent squares only), labeling, and source selection (prefer highest `getFluidAmount()`; deterministic tie-break)
+- [x] Prefer nearby faucet/sink or any water object (`obj:hasWater()`, `obj:getFluidAmount()>0`)
+- [x] Clear stage separation with visual comments and logging
+- [x] Wash Self (Stage 2): guard with `ISWashYourself.GetRequiredWater(player)`; build `soapList` (Soap2 bars, Bleach/CleaningLiquid); call `ISWorldObjectContextMenu.onWashYourself`
+- [x] Clean Bandages/Rags (Stage 1): main inventory using `getAllTag("CanBeWashed")` and `ISWorldObjectContextMenu.onWashClothing` with empty soap list `{}`
+- [ ] Maintain target order: rags/bandages → self → worn clothing → equipped weapons → worn bags → items inside worn bags
+- [ ] Return items to original container when applicable
+- [ ] Ensure clothing washing uses soap only for blood removal; pass `soapList` when needed
+- [ ] Extend bandages/rags cleaning to search equipped bags
+- [ ] Implement per-item transfer/clean/return flow for items in bags
+- [ ] Verify cleaning for bandages, denim strips, leather strips
+- [ ] Natural water support for wash self (handler if available; else timed action fallback). Log outcomes
+- [ ] Implement washing worn clothing (respect blood/dirt; pass soap list; handle transfers if needed)
+- [ ] Clean equipped weapons with blood
+- [ ] Wash worn bags themselves if dirty/bloody
+- [ ] Process remaining dirty items inside worn bags (clothing/rags/weapons) with transfer/return
+- [ ] Logging improvements: timed action queue before/after, per-category summaries, optional on-screen toasts
+- [ ] Optional: random tie-break for equal `getFluidAmount()`; configurable via Mod Options
+- [ ] Add Mod Options checkboxes for filters (Wash Self, Rags/Bandages, Equipped Items, Inventory Clothing) and honor them in code
+- [ ] Final polish: translations for UI strings; error handling for missing APIs; performance tidy-up
+- [x] Order of Operations: Stage 1 clean bandages/rags FIRST; Stage 2 wash the player SECOND
+
 ## Goal
 
 - Trigger a single hotkey to wash all eligible items: worn clothing, inventory clothing, dirty/bloody rags, bloody weapons, and any other items that support washing/cleaning. Behaves similarly to Read All: finds targets near the player and queues the appropriate timed actions, leveraging the game’s context-menu handlers so we don’t reimplement validation.
-
-## Scope (v1)
-
-- Player proximity: prefer nearby faucet/sink or any world object with water (`obj:hasWater()` and `obj:getFluidAmount()>0`).
-- Targets, in this order:
-  1.  **🚧 PARTIALLY IMPLEMENTED**: Wash all bloody/dirty rags and bandages in the player inventory ~~AND in equipped bags~~ (including denim/leather rags)
-      - ✅ **WORKING**: Main inventory cleaning
-      - ❌ **NOT WORKING**: Equipped bags cleaning
-  2.  **✅ IMPLEMENTED**: Wash the player (wash yourself)
-  3.  Worn clothing with blood and/or dirt
-  4.  Equipped weapons with blood
-  5.  Equipped containers (wash the worn bags themselves; contents are handled in the next step)
-  6.  Lastly, any dirty items inside the equipped bags (clothing, rags/bandages, weapons)
-- Return items to original container when applicable.
-- Soap handling: we build and pass a soapList (bars and qualifying cleaning liquids); the game uses it if present.
-- Single-file implementation: `client/WashMain.lua` registered via `Events.OnCustomUIKey` (like Drink/Read).
 
 ## Keybind
 
@@ -90,69 +101,37 @@
 - Rags: dirty/bloody rag item types; use inventory-pane handler to "Clean Rag/Bandage" rather than bespoke checks.
 - Weapons: presence of blood state on weapon (cleanable via inventory-pane handler if available in current build).
 
-## Testing plan
-
-- Spawn faucet with water and soap bars.
-- Wear bloodied clothing; carry dirty rags and a bloody weapon in a bag.
-- Press hotkey:
-  - Verify timed actions queue: transfers (if needed) → wash clothing → clean rags → clean weapon → transfers back.
-  - Confirm water/soap counts reduce as expected; items return to original containers (except worn clothing/weapons which remain equipped).
-  - Current step: verify player says "<Source> found", logs show candidates and "Selected source", then logs "Required water...", "Soap list built...", and wash handler invocation; confirm auto-walk and action enqueue.
-
-## To-do
-
-- [x] **COMPLETED**: Implement basic water detection and adjacency checking
-- [x] **COMPLETED**: Implement wash self functionality with soap handling
-- [x] **PARTIALLY COMPLETED**: Implement bandages/rags cleaning (Stage 1) - main inventory only
-- [x] **COMPLETED**: Reorder operations (bandages first, then player)
-- [ ] **TESTING NEEDED**: Verify bandages, denim strips, leather strips cleaning (currently only tested with rags)
-- [ ] **HIGH PRIORITY**: Fix equipped bags search - current `findDirtyItems()` only searches main inventory, not equipped bags
-- [ ] **TODO**: Implement per-item transfer/clean/return flow for items in bags
-- [ ] 1. Natural water support for wash self (handler if available; else consider timed action fallback). Log outcomes.
-- [ ] 2. Add Mod Options checkboxes for filters (Wash Self, Rags/Bandages, Equipped Items, Inventory Clothing) and honor them in code.
-- [ ] 3. Implement Step 3: wash worn clothing (respect dirt/blood; sorting optional); pass soap list, handle transfers if needed.
-- [ ] 4. Implement Step 4: clean equipped weapons with blood.
-- [ ] 5. Implement Step 5: wash worn bags themselves if dirty/bloody.
-- [ ] 6. Implement Step 6: process remaining dirty items inside worn bags (clothing/rags/weapons) with transfer/return.
-- [ ] 7. Logging improvements: timed action queue before/after, per-category summaries, optional on-screen toasts.
-- [ ] 8. Optional: random tie-break for equal `getFluidAmount()`; configurable via Mod Options.
-- [ ] 9. Final polish: translations for UI strings; error handling for missing APIs; performance tidy-up.
-
 ## File layout
 
 - `ExtraKeybinds/contents/mods/ExtraKeybinds/42/media/lua/client/WashMain.lua` (single-file feature)
-  - **✅ IMPLEMENTED**: Water detection (adjacent only), labeling, and logging
-  - **✅ IMPLEMENTED**: Stage 1: Clean bandages/rags using `ISWorldObjectContextMenu.onWashClothing`
-  - **✅ IMPLEMENTED**: Stage 2: Wash self via handler with `soapList` and required-water guard
-  - **✅ IMPLEMENTED**: Clear stage separation with visual comments and logging
-- **✅ IMPLEMENTED**: Register key handler with `Events.OnCustomUIKey`.
-- **✅ IMPLEMENTED**: Add Mod Options key entry: "Wash All" (default Left Arrow), consistent with existing options style.
 
 ## Notes
 
 - We will prefer invoking context menu handlers over manual timed actions to minimize edge-case bugs.
 
-## Current implementation status
+### Archived: Natural water fallback snippet (previously in `WashMain.lua`)
 
-- **✅ WORKING**: Keybind: Mod Options adds "Wash All" (default Left Arrow).
-- **✅ WORKING**: Detection: scans adjacent squares only; labels source (Sink/Toilet/Bathtub/Well/Dispenser/Lake) and logs candidates and the selected source. Picks highest fluid amount; deterministic tie-break.
-- **🚧 PARTIALLY WORKING**: Clean Bandages/Rags (Stage 1):
-  - Uses `getAllTag("CanBeWashed")` to find dirty bandages, ripped sheets, denim strips, leather strips
-  - Calls `ISWorldObjectContextMenu.onWashClothing(player, waterObject, {}, dirtyItems, nil, false)`
-  - **KEY DISCOVERY**: Bandages/rags don't need soap - only water! Empty soap list `{}` is passed.
-  - ✅ Successfully cleans rags from **main inventory**
-  - ❌ **LIMITATION**: Only searches main inventory, NOT equipped bags
-  - ⚠️ Needs testing on other types (bandages, denim, leather)
-- **✅ WORKING**: Wash Self (Stage 2, object sources):
-  - Logs required water via `ISWashYourself.GetRequiredWater(player)` and skips if 0.
-  - Builds and passes `soapList` (Soap2 bars, Bleach/CleaningLiquid containers) to `ISWorldObjectContextMenu.onWashYourself`.
-  - Relies on handler to auto-walk and enqueue actions; logs success/failure.
-  - Natural water handling not implemented yet.
+These lines detected and selected a natural water tile as a fallback when no object water source was found in adjacent squares. We removed them from the code to simplify behavior (object sources only), but keep them here for easy restoration if needed.
 
-### Order of Operations (Updated)
+Detection within the scan loop:
 
-1. **Stage 1**: Clean bandages and rags FIRST
-2. **Stage 2**: Wash the player SECOND
+```lua
+-- Check for natural water tiles (lake/river)
+if not naturalCandidate and isNaturalWaterSquare(sq) then
+    logWash(string.format("Natural water found at (%d,%d,%d)", sq:getX(), sq:getY(), sq:getZ()))
+    naturalCandidate = { kind = "natural", square = sq, label = "Lake" }
+end
+```
+
+Selection after object preference:
+
+```lua
+if naturalCandidate then
+    logWash(string.format("Selected source: %s at (%d,%d,%d)",
+        naturalCandidate.label, naturalCandidate.square:getX(), naturalCandidate.square:getY(), naturalCandidate.square:getZ()))
+    return naturalCandidate
+end
+```
 
 ### Key Technical Discoveries
 
@@ -162,19 +141,3 @@
   - Regular clothing: Soap used for blood removal only
 - **Item Detection**: `getAllTag("CanBeWashed")` correctly identifies all washable items
 - **Handler Choice**: `ISWorldObjectContextMenu.onWashClothing` handles both regular clothing AND bandages/rags
-
-## Development approach (small, testable steps)
-
-- We will implement and verify in narrow increments to avoid regressions:
-  1. Detect valid water sources (sinks and other sources; enforce adjacency). Ship and test.
-  2. Implement "Wash Self" only using the detected source. Ship and test.
-     - Pre-check: log `ISWashYourself.GetRequiredWater(player)`; skip if 0 ("Nothing to wash").
-     - Build `soapList` (Soap2 bars, Bleach/CleaningLiquid containers) and pass to handler.
-     - Call `ISWorldObjectContextMenu.onWashYourself(player, sinkObject, soapList)` and rely on handler auto-walk.
-  3. Add rags/bandages cleaning (from main inventory and equipped bags). Ship and test.
-  4. Add worn clothing washing. Ship and test.
-  5. Add equipped weapons cleaning. Ship and test.
-  6. Add washing worn bags themselves. Ship and test.
-  7. Add washing remaining dirty items inside equipped bags. Ship and test.
-  8. Wire Mod Options filters (enable/disable categories) and default Left Arrow keybind. Ship and test.
-  9. Final polish: error handling, no-op messaging, and performance checks.
