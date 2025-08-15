@@ -1,31 +1,40 @@
 # ExtraKeybinds: Wash All feature (design notes)
 
-## To-do (consolidated)
+## Implementation Status
 
 - [x] Register key handler on `Events.OnCustomUIKey`
 - [x] Add Mod Options key entry: "Wash All" (default Left Arrow)
 - [x] Single-file implementation in `ExtraKeybinds/contents/mods/ExtraKeybinds/42/media/lua/client/WashMain.lua`
-- [x] Implement basic water detection (adjacent squares only), labeling, and source selection (prefer highest `getFluidAmount()`; deterministic tie-break)
-- [x] Prefer nearby faucet/sink or any water object (`obj:hasWater()`, `obj:getFluidAmount()>0`)
-- [x] Clear stage separation with visual comments and logging
-- [x] Wash Self (Stage 2): guard with `ISWashYourself.GetRequiredWater(player)`; build `soapList` (Soap2 bars, Bleach/CleaningLiquid); call `ISWorldObjectContextMenu.onWashYourself`
-- [x] Clean Bandages/Rags (Stage 1): main inventory using `getAllTag("CanBeWashed")` and `ISWorldObjectContextMenu.onWashClothing` with empty soap list `{}`
-- [ ] Maintain target order: rags/bandages → self → worn clothing → equipped weapons → worn bags → items inside worn bags
-- [ ] Return items to original container when applicable
-- [ ] Ensure clothing washing uses soap only for blood removal; pass `soapList` when needed
-- [ ] Extend bandages/rags cleaning to search equipped bags
-- [ ] Implement per-item transfer/clean/return flow for items in bags
-- [ ] Verify cleaning for bandages, denim strips, leather strips
-- [ ] Natural water support for wash self (handler if available; else timed action fallback). Log outcomes
-- [ ] Implement washing worn clothing (respect blood/dirt; pass soap list; handle transfers if needed)
-- [ ] Clean equipped weapons with blood
-- [ ] Wash worn bags themselves if dirty/bloody
-- [ ] Process remaining dirty items inside worn bags (clothing/rags/weapons) with transfer/return
-- [ ] Logging improvements: timed action queue before/after, per-category summaries, optional on-screen toasts
-- [ ] Optional: random tie-break for equal `getFluidAmount()`; configurable via Mod Options
-- [ ] Add Mod Options checkboxes for filters (Wash Self, Rags/Bandages, Equipped Items, Inventory Clothing) and honor them in code
-- [ ] Final polish: translations for UI strings; error handling for missing APIs; performance tidy-up
-- [x] Order of Operations: Stage 1 clean bandages/rags FIRST; Stage 2 wash the player SECOND
+- [x] Water detection: adjacent squares only; label sources; select highest `getFluidAmount()`; prefer object water sources
+- [x] Clear stage separation and comprehensive logging
+- [x] Clean bandages/rags from main inventory AND equipped bags/nested containers
+- [x] Wash self via `ISWorldObjectContextMenu.onWashYourself` with `soapList` and required-water guard
+- [x] Wash worn clothing (blood/dirt detection, soap for blood only)
+- [x] Clean equipped weapons (blood detection, soap for blood removal)
+- [x] Wash worn bags themselves (blood/dirt detection, soap for blood)
+- [x] Wash remaining dirty items (unworn clothing, unequipped weapons, misc washable items)
+- [x] Per-item transfer/clean flow for items in equipped bags (no return-to-origin by design)
+- [x] Comprehensive item filtering to avoid duplicate processing across stages
+
+### Options to implement (user-configurable filters)
+
+- [ ] Add Mod Options checkboxes to enable/disable categories:
+  - Wash Self
+  - Rags/Bandages
+  - Worn Clothing, Equipped Weapons, Worn Bags
+  - Remaining Inventory Items
+- [ ] Honor options in runtime flow: skip disabled categories while preserving order
+- [ ] Persist settings and provide sensible defaults (all enabled)
+- [ ] Fix player speech messages during washing (currently not working properly)
+
+## Current Wash Sequence (6 Stages)
+
+1. **Stage 1**: Clean bandages/rags from main inventory and all equipped bags/nested containers
+2. **Stage 2**: Wash player body
+3. **Stage 3**: Wash worn clothing (blood/dirt removal with soap for blood)
+4. **Stage 4**: Clean equipped weapons (blood removal with soap)
+5. **Stage 5**: Wash worn bags themselves (blood/dirt removal with soap for blood)
+6. **Stage 6**: Wash any remaining dirty items not covered by previous stages
 
 ## Goal
 
@@ -103,7 +112,13 @@
 
 ## File layout
 
-- `ExtraKeybinds/contents/mods/ExtraKeybinds/42/media/lua/client/WashMain.lua` (single-file feature)
+- `ExtraKeybinds/contents/mods/ExtraKeybinds/42/media/lua/client/WashMain.lua` (963 lines, complete implementation)
+  - **✅ IMPLEMENTED**: All 6 stages of comprehensive washing
+  - **✅ IMPLEMENTED**: Water detection (adjacent only), labeling, and logging
+  - **✅ IMPLEMENTED**: Per-item transfer/wash flow for bag contents
+  - **✅ IMPLEMENTED**: Intelligent filtering to avoid duplicate processing
+  - **✅ IMPLEMENTED**: Register key handler with `Events.OnCustomUIKey`
+  - **✅ IMPLEMENTED**: Add Mod Options key entry: "Wash All" (default Left Arrow)
 
 ## Notes
 
@@ -138,6 +153,8 @@ end
 - **Soap Usage**: Different cleaning systems have different soap requirements:
   - Self-washing: Requires soap for blood removal
   - Bandages/rags: Water only (no soap needed)
-  - Regular clothing: Soap used for blood removal only
-- **Item Detection**: `getAllTag("CanBeWashed")` correctly identifies all washable items
-- **Handler Choice**: `ISWorldObjectContextMenu.onWashClothing` handles both regular clothing AND bandages/rags
+  - Regular clothing/weapons/bags: Soap used for blood removal only
+- **Item Detection**: `getAllTag("CanBeWashed")` and `getAllEvalRecurse()` with custom predicates correctly identify all washable items
+- **Handler Choice**: `ISWorldObjectContextMenu.onWashClothing` handles all item types (clothing, bandages/rags, weapons, containers)
+- **Container Transfer**: Items must be in main inventory for wash actions to work; transfer-in/wash/no-return pattern works reliably
+- **Stage Filtering**: Smart filtering prevents duplicate processing of items across multiple stages

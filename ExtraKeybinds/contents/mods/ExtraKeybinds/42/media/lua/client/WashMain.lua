@@ -12,48 +12,70 @@ local function logWash(message)
     print("[ExtraKeybinds][Wash] " .. tostring(message))
 end
 
--- Find all dirty bandages/rags in inventory - DEBUG VERSION
+-- Find all dirty bandages/rags across main inventory AND nested containers (incl. worn bags)
+-- Returns two arrays: mainInvItems (items already in player inventory) and bagItems (items in other containers)
 local function findDirtyItems(player)
-    if not player then 
-        logWash("DEBUG: No player provided")
-        return {} 
-    end
-    local inv = player:getInventory()
-    if not inv then 
-        logWash("DEBUG: No inventory found")
-        return {} 
-    end
+	if not player then 
+		logWash("DEBUG: No player provided")
+		return {}, {}
+	end
+	local inv = player:getInventory()
+	if not inv then 
+		logWash("DEBUG: No inventory found")
+		return {}, {}
+	end
 
-    -- DEBUG: Check what getAllTag actually returns
-    local dirtyItems = inv:getAllTag("CanBeWashed", ArrayList.new())
-    logWash(string.format("DEBUG: getAllTag('CanBeWashed') returned %d items", dirtyItems:size()))
-    
-    -- DEBUG: Also check for the specific dirty item types manually
-    local manualCheck = {
-        ["Base.BandageDirty"] = inv:getCountTypeRecurse("Base.BandageDirty"),
-        ["Base.DenimStripsDirty"] = inv:getCountTypeRecurse("Base.DenimStripsDirty"), 
-        ["Base.LeatherStripsDirty"] = inv:getCountTypeRecurse("Base.LeatherStripsDirty"),
-        ["Base.RippedSheetsDirty"] = inv:getCountTypeRecurse("Base.RippedSheetsDirty")
-    }
-    
-    for itemType, count in pairs(manualCheck) do
-        logWash(string.format("DEBUG: Manual check - %s: %d items", itemType, count))
-    end
-    
-    local items = {}
-    
-    -- Convert to Lua table and log
-    for i = 0, dirtyItems:size() - 1 do
-        local item = dirtyItems:get(i)
-        logWash(string.format("DEBUG: getAllTag item %d: %s (jobDelta: %s)", i, item:getFullType(), tostring(item:getJobDelta())))
-        if item:getJobDelta() == 0 then -- Not already being washed
-            logWash(string.format("Found dirty item: %s", item:getFullType()))
-            table.insert(items, item)
-        end
-    end
+	local dirtyTypeSet = {
+		["Base.BandageDirty"] = true,
+		["Base.RippedSheetsDirty"] = true,
+		["Base.DenimStripsDirty"] = true,
+		["Base.LeatherStripsDirty"] = true,
+	}
 
-    logWash(string.format("DEBUG: Returning %d items for cleaning", #items))
-    return items
+	local function isDirtyBandageLike(item)
+		if not item or not item.getFullType then return false end
+		if item.getJobDelta and item:getJobDelta() > 0 then return false end
+		local fullType = item:getFullType()
+		return dirtyTypeSet[fullType] == true
+	end
+
+	-- Use recursive search to include worn-bag contents and nested containers
+	local ok, all = pcall(function() return inv:getAllEvalRecurse(isDirtyBandageLike) end)
+	if not ok or not all then
+		logWash("DEBUG: getAllEvalRecurse not available; falling back to non-recursive getAllTag")
+		local nonrec = inv:getAllTag("CanBeWashed", ArrayList.new())
+		all = nonrec
+	end
+
+	-- Diagnostics similar to previous debug
+	local manualCheck = {
+		["Base.BandageDirty"] = inv:getCountTypeRecurse("Base.BandageDirty"),
+		["Base.DenimStripsDirty"] = inv:getCountTypeRecurse("Base.DenimStripsDirty"),
+		["Base.LeatherStripsDirty"] = inv:getCountTypeRecurse("Base.LeatherStripsDirty"),
+		["Base.RippedSheetsDirty"] = inv:getCountTypeRecurse("Base.RippedSheetsDirty"),
+	}
+	for itemType, count in pairs(manualCheck) do
+		logWash(string.format("DEBUG: Manual check - %s: %d items", itemType, count))
+	end
+
+	local mainInvItems, bagItems = {}, {}
+	local playerInv = player:getInventory()
+
+	for i = 0, (all:size() - 1) do
+		local item = all:get(i)
+		if isDirtyBandageLike(item) then
+			logWash(string.format("DEBUG: candidate %d: %s (jobDelta: %s)", i, item:getFullType(), tostring(item:getJobDelta())))
+			local fromContainer = item.getContainer and item:getContainer() or nil
+			if fromContainer == playerInv then
+				table.insert(mainInvItems, { item = item })
+			else
+				table.insert(bagItems, { item = item, fromContainer = fromContainer })
+			end
+		end
+	end
+
+	logWash(string.format("DEBUG: Returning %d main-inv items and %d bag/nested items for cleaning", #mainInvItems, #bagItems))
+	return mainInvItems, bagItems
 end
 
 -- Clean all dirty bandages/strips/rags in strict order, one-by-one with returns.
@@ -85,44 +107,109 @@ local function queueCleanBandagesAndRags(player, waterObject)
 
     logWash("DEBUG: Water source validation passed")
 
-    -- Find all dirty items
-    local dirtyItems = findDirtyItems(player)
-    logWash(string.format("DEBUG: findDirtyItems returned %d items", #dirtyItems))
-    
-    if #dirtyItems == 0 then
-        logWash("No items available to clean")
-        return
-    end
+	-- Find all dirty items (split by container origin)
+	local mainInvItems, bagItems = findDirtyItems(player)
+	local totalCount = #mainInvItems + #bagItems
+	logWash(string.format("DEBUG: findDirtyItems returned %d main + %d bag = %d total", #mainInvItems, #bagItems, totalCount))
+	if totalCount == 0 then
+		logWash("No items available to clean")
+		return
+	end
 
-    -- Soap is NOT needed for bandage/rag cleaning (only uses water)
-    logWash("DEBUG: Skipping soap list for bandages - they only need water")
-    
-    -- Announce what we're doing
-    player:Say("Cleaning bandages and rags...")
-    logWash(string.format("Found %d items to clean", #dirtyItems))
+	-- Soap is NOT needed for bandage/rag cleaning (only uses water)
+	logWash("DEBUG: Skipping soap list for bandages - they only need water")
 
-    -- Use vanilla wash clothing handler (same pattern as wash self)
-    logWash("DEBUG: About to call luautils.walkAdj")
-    if not luautils.walkAdj(player, waterObject:getSquare(), true) then
-        logWash("Walk adjacent failed")
-        return
-    end
-    logWash("DEBUG: walkAdj succeeded")
+	-- Announce what we're doing
+	player:Say("Cleaning bandages and rags...")
+	logWash(string.format("Found %d items to clean", totalCount))
 
-    -- Queue the wash action with the list of items (no soap needed for bandages)
-    logWash("DEBUG: About to call ISWorldObjectContextMenu.onWashClothing")
-    logWash(string.format("DEBUG: Parameters - player: %s, waterObject: %s, dirtyItems: %d items", 
-        tostring(player), tostring(waterObject), #dirtyItems))
-    
-    local ok, err = pcall(function()
-        ISWorldObjectContextMenu.onWashClothing(player, waterObject, {}, dirtyItems, nil, false)
-    end)
-    
-    if ok then
-        logWash("Wash actions queued successfully")
-    else
-        logWash("ERROR calling onWashClothing: " .. tostring(err))
-    end
+	-- Ensure we are adjacent once
+	logWash("DEBUG: About to call luautils.walkAdj")
+	if not luautils.walkAdj(player, waterObject:getSquare(), true) then
+		logWash("Walk adjacent failed")
+		return
+	end
+	logWash("DEBUG: walkAdj succeeded")
+
+	-- 1) Wash items already in main inventory (one at a time)
+	for _, rec in ipairs(mainInvItems) do
+		local item = rec.item
+		local single = { item }
+		local ok1, err1 = pcall(function()
+			ISWorldObjectContextMenu.onWashClothing(player, waterObject, {}, single, nil, false)
+		end)
+		if not ok1 then
+			logWash("ERROR washing main-inv item: " .. tostring(err1))
+		end
+	end
+
+	-- 2) Wash items from worn bags / nested containers (transfer-in, then wash)
+	local playerInv = player:getInventory()
+	for _, rec in ipairs(bagItems) do
+		local item = rec.item
+		local from = rec.fromContainer
+		if item and from and from ~= playerInv then
+			ISTimedActionQueue.add(ISInventoryTransferAction:new(player, item, from, playerInv))
+		end
+		local single = { item }
+		local ok2, err2 = pcall(function()
+			ISWorldObjectContextMenu.onWashClothing(player, waterObject, {}, single, nil, false)
+		end)
+		if not ok2 then
+			logWash("ERROR washing bag/nested item: " .. tostring(err2))
+		end
+	end
+
+	logWash("Wash actions queued successfully")
+end
+
+-- Find all worn clothing items that need washing (blood or dirt > 0)
+local function findDirtyWornClothing(player)
+	if not player then return {} end
+	
+	local dirtyClothing = {}
+	local wornItems = player:getWornItems()
+	if not wornItems then return dirtyClothing end
+	
+	for i = 0, wornItems:size() - 1 do
+		local wornItem = wornItems:get(i)
+		if wornItem and wornItem.getItem then
+			local item = wornItem:getItem()
+			if item and item.IsClothing and item:IsClothing() then
+				local needsWashing = false
+				local bloodLevel = 0
+				local dirtLevel = 0
+				
+				-- Check blood level
+				if item.getBloodLevel then
+					local ok, blood = pcall(function() return item:getBloodLevel() end)
+					if ok and blood and blood > 0 then
+						needsWashing = true
+						bloodLevel = blood
+					end
+				end
+				
+				-- Check dirt level
+				if item.getDirtyness then
+					local ok, dirt = pcall(function() return item:getDirtyness() end)
+					if ok and dirt and dirt > 0 then
+						needsWashing = true
+						dirtLevel = dirt
+					end
+				end
+				
+				-- Skip if already being processed
+				if needsWashing and item.getJobDelta and item:getJobDelta() == 0 then
+					logWash(string.format("Found dirty worn clothing: %s (blood: %.1f, dirt: %.1f)", 
+						item:getDisplayName(), bloodLevel, dirtLevel))
+					table.insert(dirtyClothing, item)
+				end
+			end
+		end
+	end
+	
+	logWash(string.format("Found %d worn clothing items needing wash", #dirtyClothing))
+	return dirtyClothing
 end
 
 -- Build a soap/cleaning list compatible with vanilla handlers
@@ -171,6 +258,443 @@ local function buildSoapList(player)
 
     logWash(string.format("Soap list built: bars=%d, liquids=%d, total=%d", numBars, numLiquids, #soapList))
     return soapList
+end
+
+-- Clean all dirty worn clothing
+local function queueCleanWornClothing(player, waterObject)
+	logWash("=== STAGE 3: Starting worn clothing washing ===")
+	
+	if not player or not waterObject then
+		logWash("DEBUG: Missing player or waterObject for worn clothing wash")
+		return
+	end
+	
+	-- Find worn clothing that needs washing
+	local dirtyClothing = findDirtyWornClothing(player)
+	if #dirtyClothing == 0 then
+		logWash("No worn clothing needs washing")
+		return
+	end
+	
+	-- Build soap list for worn clothing (needed for blood removal)
+	local soapList = buildSoapList(player)
+	logWash(string.format("Built soap list for worn clothing: %d items", #soapList))
+	
+	-- Announce what we're doing
+	player:Say("Washing worn clothing...")
+	logWash(string.format("Found %d worn clothing items to wash", #dirtyClothing))
+	
+	-- Ensure adjacency (should already be done from Stage 1, but safety check)
+	if not luautils.walkAdj(player, waterObject:getSquare(), true) then
+		logWash("Walk adjacent failed for worn clothing")
+		return
+	end
+	
+	-- Wash each clothing item individually (worn items don't need transfers)
+	for _, item in ipairs(dirtyClothing) do
+		local single = { item }
+		local ok, err = pcall(function()
+			ISWorldObjectContextMenu.onWashClothing(player, waterObject, soapList, single, nil, false)
+		end)
+		if not ok then
+			logWash("ERROR washing worn clothing item: " .. tostring(err))
+		else
+			logWash(string.format("Queued wash for worn item: %s", item:getDisplayName()))
+		end
+	end
+	
+	logWash("Worn clothing wash actions queued successfully")
+end
+
+-- Find all equipped weapons that need cleaning (blood > 0)
+local function findBloodyEquippedWeapons(player)
+	if not player then return {} end
+	
+	local bloodyWeapons = {}
+	
+	-- Check primary hand item
+	local primaryItem = player:getPrimaryHandItem()
+	if primaryItem and primaryItem.IsWeapon and primaryItem:IsWeapon() then
+		local bloodLevel = 0
+		if primaryItem.getBloodLevel then
+			local ok, blood = pcall(function() return primaryItem:getBloodLevel() end)
+			if ok and blood and blood > 0 then
+				bloodLevel = blood
+				-- Skip if already being processed
+				if primaryItem.getJobDelta and primaryItem:getJobDelta() == 0 then
+					logWash(string.format("Found bloody primary weapon: %s (blood: %.1f)", 
+						primaryItem:getDisplayName(), bloodLevel))
+					table.insert(bloodyWeapons, primaryItem)
+				end
+			end
+		end
+	end
+	
+	-- Check secondary hand item
+	local secondaryItem = player:getSecondaryHandItem()
+	if secondaryItem and secondaryItem.IsWeapon and secondaryItem:IsWeapon() then
+		local bloodLevel = 0
+		if secondaryItem.getBloodLevel then
+			local ok, blood = pcall(function() return secondaryItem:getBloodLevel() end)
+			if ok and blood and blood > 0 then
+				bloodLevel = blood
+				-- Skip if already being processed
+				if secondaryItem.getJobDelta and secondaryItem:getJobDelta() == 0 then
+					logWash(string.format("Found bloody secondary weapon: %s (blood: %.1f)", 
+						secondaryItem:getDisplayName(), bloodLevel))
+					table.insert(bloodyWeapons, secondaryItem)
+				end
+			end
+		end
+	end
+	
+	logWash(string.format("Found %d equipped weapons needing cleaning", #bloodyWeapons))
+	return bloodyWeapons
+end
+
+-- Clean all bloody equipped weapons
+local function queueCleanEquippedWeapons(player, waterObject)
+	logWash("=== STAGE 4: Starting equipped weapons cleaning ===")
+	
+	if not player or not waterObject then
+		logWash("DEBUG: Missing player or waterObject for weapons cleaning")
+		return
+	end
+	
+	-- Find equipped weapons that need cleaning
+	local bloodyWeapons = findBloodyEquippedWeapons(player)
+	if #bloodyWeapons == 0 then
+		logWash("No equipped weapons need cleaning")
+		return
+	end
+	
+	-- Build soap list for weapons (needed for blood removal)
+	local soapList = buildSoapList(player)
+	logWash(string.format("Built soap list for weapons: %d items", #soapList))
+	
+	-- Announce what we're doing
+	player:Say("Cleaning equipped weapons...")
+	logWash(string.format("Found %d equipped weapons to clean", #bloodyWeapons))
+	
+	-- Ensure adjacency (should already be done from previous stages, but safety check)
+	if not luautils.walkAdj(player, waterObject:getSquare(), true) then
+		logWash("Walk adjacent failed for equipped weapons")
+		return
+	end
+	
+	-- Clean each weapon individually (equipped items don't need transfers)
+	for _, weapon in ipairs(bloodyWeapons) do
+		local single = { weapon }
+		local ok, err = pcall(function()
+			ISWorldObjectContextMenu.onWashClothing(player, waterObject, soapList, single, nil, false)
+		end)
+		if not ok then
+			logWash("ERROR cleaning equipped weapon: " .. tostring(err))
+		else
+			logWash(string.format("Queued clean for equipped weapon: %s", weapon:getDisplayName()))
+		end
+	end
+	
+	logWash("Equipped weapons cleaning actions queued successfully")
+end
+
+-- Find all worn bags/containers that need washing (blood or dirt > 0)
+local function findDirtyWornBags(player)
+	if not player then return {} end
+	
+	local dirtyBags = {}
+	local wornItems = player:getWornItems()
+	if not wornItems then return dirtyBags end
+	
+	for i = 0, wornItems:size() - 1 do
+		local wornItem = wornItems:get(i)
+		if wornItem and wornItem.getItem then
+			local item = wornItem:getItem()
+			if item and item.IsInventoryContainer and item:IsInventoryContainer() then
+				local needsWashing = false
+				local bloodLevel = 0
+				local dirtLevel = 0
+				
+				-- Check blood level
+				if item.getBloodLevel then
+					local ok, blood = pcall(function() return item:getBloodLevel() end)
+					if ok and blood and blood > 0 then
+						needsWashing = true
+						bloodLevel = blood
+					end
+				end
+				
+				-- Check dirt level (if containers can get dirty)
+				if item.getDirtyness then
+					local ok, dirt = pcall(function() return item:getDirtyness() end)
+					if ok and dirt and dirt > 0 then
+						needsWashing = true
+						dirtLevel = dirt
+					end
+				end
+				
+				-- Skip if already being processed
+				if needsWashing and item.getJobDelta and item:getJobDelta() == 0 then
+					logWash(string.format("Found dirty worn bag: %s (blood: %.1f, dirt: %.1f)", 
+						item:getDisplayName(), bloodLevel, dirtLevel))
+					table.insert(dirtyBags, item)
+				end
+			end
+		end
+	end
+	
+	logWash(string.format("Found %d worn bags needing wash", #dirtyBags))
+	return dirtyBags
+end
+
+-- Clean all dirty worn bags/containers
+local function queueCleanWornBags(player, waterObject)
+	logWash("=== STAGE 5: Starting worn bags washing ===")
+	
+	if not player or not waterObject then
+		logWash("DEBUG: Missing player or waterObject for worn bags wash")
+		return
+	end
+	
+	-- Find worn bags that need washing
+	local dirtyBags = findDirtyWornBags(player)
+	if #dirtyBags == 0 then
+		logWash("No worn bags need washing")
+		return
+	end
+	
+	-- Build soap list for worn bags (needed for blood removal)
+	local soapList = buildSoapList(player)
+	logWash(string.format("Built soap list for worn bags: %d items", #soapList))
+	
+	-- Announce what we're doing
+	player:Say("Washing worn bags...")
+	logWash(string.format("Found %d worn bags to wash", #dirtyBags))
+	
+	-- Ensure adjacency (should already be done from previous stages, but safety check)
+	if not luautils.walkAdj(player, waterObject:getSquare(), true) then
+		logWash("Walk adjacent failed for worn bags")
+		return
+	end
+	
+	-- Wash each bag individually (worn containers don't need transfers)
+	for _, bag in ipairs(dirtyBags) do
+		local single = { bag }
+		local ok, err = pcall(function()
+			ISWorldObjectContextMenu.onWashClothing(player, waterObject, soapList, single, nil, false)
+		end)
+		if not ok then
+			logWash("ERROR washing worn bag: " .. tostring(err))
+		else
+			logWash(string.format("Queued wash for worn bag: %s", bag:getDisplayName()))
+		end
+	end
+	
+	logWash("Worn bags wash actions queued successfully")
+end
+
+-- Find any remaining dirty items that weren't covered by previous stages
+-- This includes: other clothing in inventory/bags, dirty containers not worn, misc washable items
+local function findRemainingDirtyItems(player)
+	if not player then return {}, {} end
+	local inv = player:getInventory()
+	if not inv then return {}, {} end
+	
+	-- Get all items that can be washed using the CanBeWashed tag
+	local ok, allWashable = pcall(function() return inv:getAllEvalRecurse(function(item)
+		if not item or not item.getFullType then return false end
+		if item.getJobDelta and item:getJobDelta() > 0 then return false end -- Skip items being processed
+		
+		-- Check if item has CanBeWashed tag OR has blood/dirt levels
+		local hasWashTag = false
+		if item.getTags then
+			local tags = item:getTags()
+			if tags and tags:contains("CanBeWashed") then
+				hasWashTag = true
+			end
+		end
+		
+		local hasBloodOrDirt = false
+		-- Check blood level
+		if item.getBloodLevel then
+			local bloodOk, blood = pcall(function() return item:getBloodLevel() end)
+			if bloodOk and blood and blood > 0 then
+				hasBloodOrDirt = true
+			end
+		end
+		-- Check dirt level
+		if item.getDirtyness then
+			local dirtOk, dirt = pcall(function() return item:getDirtyness() end)
+			if dirtOk and dirt and dirt > 0 then
+				hasBloodOrDirt = true
+			end
+		end
+		
+		return hasWashTag or hasBloodOrDirt
+	end) end)
+	
+	if not ok or not allWashable then
+		logWash("DEBUG: getAllEvalRecurse failed for remaining items, skipping Stage 6")
+		return {}, {}
+	end
+	
+	local mainInvItems, bagItems = {}, {}
+	local playerInv = player:getInventory()
+	
+	-- Filter out items that were already handled in previous stages
+	local alreadyHandledTypes = {
+		["Base.BandageDirty"] = true,
+		["Base.RippedSheetsDirty"] = true,
+		["Base.DenimStripsDirty"] = true,
+		["Base.LeatherStripsDirty"] = true,
+	}
+	
+	for i = 0, allWashable:size() - 1 do
+		local item = allWashable:get(i)
+		if item then
+			local fullType = item:getFullType()
+			local isWorn = false
+			local isEquipped = false
+			
+			-- Skip if this was handled by previous stages
+			if alreadyHandledTypes[fullType] then
+				-- Skip bandages/rags (Stage 1)
+			elseif item.IsClothing and item:IsClothing() then
+				-- Check if this clothing is currently worn (Stage 3 already handled worn clothing)
+				local wornItems = player:getWornItems()
+				if wornItems then
+					for j = 0, wornItems:size() - 1 do
+						local wornItem = wornItems:get(j)
+						if wornItem and wornItem.getItem and wornItem:getItem() == item then
+							isWorn = true
+							break
+						end
+					end
+				end
+				if not isWorn then
+					-- This is unworn clothing in inventory/bags that needs washing
+					local fromContainer = item.getContainer and item:getContainer() or nil
+					if fromContainer == playerInv then
+						table.insert(mainInvItems, { item = item })
+					else
+						table.insert(bagItems, { item = item, fromContainer = fromContainer })
+					end
+				end
+			elseif item.IsWeapon and item:IsWeapon() then
+				-- Check if this weapon is currently equipped (Stage 4 already handled equipped weapons)
+				local primaryWeapon = player:getPrimaryHandItem()
+				local secondaryWeapon = player:getSecondaryHandItem()
+				if item ~= primaryWeapon and item ~= secondaryWeapon then
+					-- This is an unequipped weapon in inventory/bags that needs cleaning
+					local fromContainer = item.getContainer and item:getContainer() or nil
+					if fromContainer == playerInv then
+						table.insert(mainInvItems, { item = item })
+					else
+						table.insert(bagItems, { item = item, fromContainer = fromContainer })
+					end
+				end
+			elseif item.IsInventoryContainer and item:IsInventoryContainer() then
+				-- Check if this container is currently worn (Stage 5 already handled worn bags)
+				local wornItems = player:getWornItems()
+				if wornItems then
+					for j = 0, wornItems:size() - 1 do
+						local wornItem = wornItems:get(j)
+						if wornItem and wornItem.getItem and wornItem:getItem() == item then
+							isWorn = true
+							break
+						end
+					end
+				end
+				if not isWorn then
+					-- This is an unworn container in inventory/bags that needs washing
+					local fromContainer = item.getContainer and item:getContainer() or nil
+					if fromContainer == playerInv then
+						table.insert(mainInvItems, { item = item })
+					else
+						table.insert(bagItems, { item = item, fromContainer = fromContainer })
+					end
+				end
+			else
+				-- Other washable items (tools, etc.)
+				local fromContainer = item.getContainer and item:getContainer() or nil
+				if fromContainer == playerInv then
+					table.insert(mainInvItems, { item = item })
+				else
+					table.insert(bagItems, { item = item, fromContainer = fromContainer })
+				end
+			end
+		end
+	end
+	
+	logWash(string.format("Found %d remaining main-inv items and %d remaining bag items needing wash", #mainInvItems, #bagItems))
+	return mainInvItems, bagItems
+end
+
+-- Clean any remaining dirty items not covered by previous stages
+local function queueCleanRemainingItems(player, waterObject)
+	logWash("=== STAGE 6: Starting remaining dirty items washing ===")
+	
+	if not player or not waterObject then
+		logWash("DEBUG: Missing player or waterObject for remaining items wash")
+		return
+	end
+	
+	-- Find remaining items that need washing
+	local mainInvItems, bagItems = findRemainingDirtyItems(player)
+	local totalCount = #mainInvItems + #bagItems
+	if totalCount == 0 then
+		logWash("No remaining items need washing")
+		return
+	end
+	
+	-- Build soap list for remaining items (may need soap for blood removal)
+	local soapList = buildSoapList(player)
+	logWash(string.format("Built soap list for remaining items: %d items", #soapList))
+	
+	-- Announce what we're doing
+	player:Say("Washing remaining items...")
+	logWash(string.format("Found %d remaining items to wash", totalCount))
+	
+	-- Ensure adjacency (should already be done from previous stages, but safety check)
+	if not luautils.walkAdj(player, waterObject:getSquare(), true) then
+		logWash("Walk adjacent failed for remaining items")
+		return
+	end
+	
+	-- 1) Wash items already in main inventory (one at a time)
+	for _, rec in ipairs(mainInvItems) do
+		local item = rec.item
+		local single = { item }
+		local ok1, err1 = pcall(function()
+			ISWorldObjectContextMenu.onWashClothing(player, waterObject, soapList, single, nil, false)
+		end)
+		if not ok1 then
+			logWash("ERROR washing remaining main-inv item: " .. tostring(err1))
+		else
+			logWash(string.format("Queued wash for remaining item: %s", item:getDisplayName()))
+		end
+	end
+	
+	-- 2) Wash items from bags (transfer-in, then wash)
+	local playerInv = player:getInventory()
+	for _, rec in ipairs(bagItems) do
+		local item = rec.item
+		local from = rec.fromContainer
+		if item and from and from ~= playerInv then
+			ISTimedActionQueue.add(ISInventoryTransferAction:new(player, item, from, playerInv))
+		end
+		local single = { item }
+		local ok2, err2 = pcall(function()
+			ISWorldObjectContextMenu.onWashClothing(player, waterObject, soapList, single, nil, false)
+		end)
+		if not ok2 then
+			logWash("ERROR washing remaining bag item: " .. tostring(err2))
+		else
+			logWash(string.format("Queued wash for remaining bag item: %s", item:getDisplayName()))
+		end
+	end
+	
+	logWash("Remaining items wash actions queued successfully")
 end
 
 local function isAdjacentTo(playerSquare, targetSquare)
@@ -389,6 +913,46 @@ local function washHotkeyHandler(key)
         logWash("Natural water washing not implemented yet; skipping")
     else
         logWash("No compatible wash-yourself handler available")
+    end
+
+    -- =================================================================
+    -- * STAGE 3: WASH WORN CLOTHING
+    -- =================================================================
+    -- After washing the player, clean any dirty/bloody worn clothing
+    if found.kind == "object" and found.object then
+        queueCleanWornClothing(player, found.object)
+    else
+        logWash("STAGE 3: Skipping worn clothing wash (no object water source)")
+    end
+
+    -- =================================================================
+    -- * STAGE 4: CLEAN EQUIPPED WEAPONS
+    -- =================================================================
+    -- After washing worn clothing, clean any bloody equipped weapons
+    if found.kind == "object" and found.object then
+        queueCleanEquippedWeapons(player, found.object)
+    else
+        logWash("STAGE 4: Skipping equipped weapons cleaning (no object water source)")
+    end
+
+    -- =================================================================
+    -- * STAGE 5: WASH WORN BAGS
+    -- =================================================================
+    -- After cleaning equipped weapons, wash any dirty/bloody worn bags themselves
+    if found.kind == "object" and found.object then
+        queueCleanWornBags(player, found.object)
+    else
+        logWash("STAGE 5: Skipping worn bags washing (no object water source)")
+    end
+
+    -- =================================================================
+    -- * STAGE 6: WASH REMAINING DIRTY ITEMS
+    -- =================================================================
+    -- Finally, wash any remaining dirty items in inventory/bags not covered by previous stages
+    if found.kind == "object" and found.object then
+        queueCleanRemainingItems(player, found.object)
+    else
+        logWash("STAGE 6: Skipping remaining items washing (no object water source)")
     end
 end
 

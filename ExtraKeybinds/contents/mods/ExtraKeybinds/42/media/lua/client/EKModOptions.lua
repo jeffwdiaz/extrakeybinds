@@ -49,6 +49,13 @@ ExtraKeybindsOptions:addTickBox(
     "Prevents auto-reading while a firearm is equipped in hands"
 )
 
+ExtraKeybindsOptions:addTickBox(
+    "preventTaintedWater",
+    "Prevent Drinking Tainted Water",
+    true,
+    "Skip drinking from sources that contain tainted water"
+)
+
 -- * ---------------------------------------------------------------------------
 -- * Key binding options
 
@@ -109,6 +116,10 @@ end
 
 function ExtraKeybindsSettings.getDisableReadWhenArmed()
     return ExtraKeybindsModOptions:getOption("disableReadWhenArmed"):getValue()
+end
+
+function ExtraKeybindsSettings.getPreventTaintedWater()
+    return ExtraKeybindsModOptions:getOption("preventTaintedWater"):getValue()
 end
 
 function ExtraKeybindsSettings.getWashAllKeybind()

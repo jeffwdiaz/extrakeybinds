@@ -2,6 +2,35 @@
 require "ISUI/ISInventoryPaneContextMenu"
 require "EKModOptions"
 
+-- Water quality detection function
+local function isWaterTainted(waterSource)
+    if not waterSource then return false end
+    
+    -- Method 1: Check if the object supports tainted water detection
+    if waterSource.isTaintedWater then
+        local ok, tainted = pcall(function() 
+            return waterSource:isTaintedWater() 
+        end)
+        if ok then 
+            return tainted == true 
+        end
+    end
+    
+    -- Method 2: Check if it's a natural water source (always tainted)
+    if waterSource.getSquare then
+        local square = waterSource:getSquare()
+        if square then
+            local props = square:getProperties()
+            if props and IsoFlagType and props:Is(IsoFlagType.water) then
+                return true -- Natural water is tainted by default
+            end
+        end
+    end
+    
+    -- Default: assume clean water for objects that don't support taint detection
+    return false
+end
+
 local function drink()
     local player = getPlayer()
     local playerInventory = player:getInventory()
@@ -41,6 +70,12 @@ local function drink()
     -- Try drinking from sink first using the correct function from game files
     local sink = findNearbySink()
     if sink then
+        -- Check water quality before drinking
+        if ExtraKeybindsSettings.getPreventTaintedWater() and isWaterTainted(sink) then
+            player:Say("Water looks contaminated")
+            return
+        end
+        
         -- Use the correct function call based on the actual game code
         -- Try different parameter approaches to avoid getSpecificPlayer error
         local playerNum = player:getPlayerNum()
@@ -115,6 +150,12 @@ local function drink()
     local drinkItem, originalContainer = findDrinkable(playerInventory)
     
     if drinkItem then
+        -- Check water quality before drinking
+        if ExtraKeybindsSettings.getPreventTaintedWater() and isWaterTainted(drinkItem) then
+            player:Say("Water looks contaminated")
+            return
+        end
+        
         local needsReturn = (originalContainer ~= playerInventory)
         
         if needsReturn then
