@@ -6,36 +6,5 @@
 	"previewfile"		"C:/Users/jeffw/Desktop/Workspace/github/inPROGRESS/projzMods/ExtraKeybinds/preview.png"
 	"visibility"		"0"
 	"title"		"Extra KeyBinds"
-	"description"		"Adds useful keybinds for common actions.
-
-Adds useful hotkeys for common actions. Currently includes two hotkeys:
-
-[b]Drink Water[/b]
-- Drink from nearby sink
-- Drinks from player inventory or bag if no sink nearby
-- Returns bottle to bag
-- Default key binding : none
-
-[b]Read All Books[/b]
-- Reads from player inventory, bags, nearby containers and floor
-- Returns book back to original place for bags and containers
-- Keeps book in player inv for books taken from floor
-- Choose which types of literature to read
-- Option to read while armed
-- Default key binding : r
-
-[i]Current WIP:[/i]
-- Wash all keybind
-
-[i]Planned Features:[/i]
-- Smart eating
-- Equip/Unequip Umbrella
-- Take painkillers/beta-blockers/antidepressant
-
-[b]Known Bugs:[/b]
-- Can't return books to floor
-
-Feedback welcome!"
-
-	"changenote"		"v1.2: Read All now has configurable options"
+	"changenote"		"v1.3: Wash implemented and tainted water check before drinking"
 }

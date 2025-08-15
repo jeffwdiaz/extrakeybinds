@@ -1,8 +1,8 @@
-name=Extra KeyBinds (Dev)
-id=ExtraKeyBindsDev
+name=Extra KeyBinds
+id=ExtraKeyBinds
 author=fireblanket
 description=Adds useful keybinds for common actions.
 poster=poster.png
 icon=icon.png
 clientOnly=true
-version=1.2
+version=1.3
