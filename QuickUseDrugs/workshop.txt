@@ -1,0 +1,9 @@
+"workshopitem"
+{
+	"appid"		"108600"
+	"contentfolder"		"C:/Users/jeffw/Desktop/Workspace/github/inPROGRESS/projzMods/QuickUseDrugs/contents/"
+	"previewfile"		"C:/Users/jeffw/Desktop/Workspace/github/inPROGRESS/projzMods/QuickUseDrugs/preview.png"
+	"visibility"		"0"
+	"title"		"QuickUse Drugs"
+	"changenote"		"v1: Init"
+}

@@ -1,3 +1,15 @@
-# Project Zomboid Mod Development .gitignore
+# All .cursor folders and all files within
+**/.cursor/**
 
-docs/
+# All archive folders and all files within
+**/archive/**
+
+# All environment variable files
+**/.env
+**/.env.*
+
+# All docs folders and all files within
+/docs
+
+# <--- AI Content Boundary
+# <--- AI model has written all content below this line

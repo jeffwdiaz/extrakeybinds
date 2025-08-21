@@ -1,0 +1,8 @@
+name=QuickUse Drugs
+id=QuickUseDrugs
+author=fireblanket
+description=Smart drug use.
+poster=poster.png
+icon=icon.png
+clientOnly=true
+version=1.0
