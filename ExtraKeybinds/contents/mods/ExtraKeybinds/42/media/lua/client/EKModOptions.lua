@@ -80,8 +80,16 @@ ExtraKeybindsOptions:addKeyBind(
 ExtraKeybindsOptions:addKeyBind(
     "washAllKeybind",
     "Wash All",
-    203, -- Default: Left Arrow
+    0, -- Default: Left Arrow
     "Key binding to detect water sources and wash (feature stages)"
+)
+
+-- Sit on Ground feature keybind (default: T key)
+ExtraKeybindsOptions:addKeyBind(
+    "sitOnGroundKeybind",
+    "Sit on Ground",
+    0,
+    "Key binding to sit down on the ground"
 )
 
 -- Global access to options
@@ -124,4 +132,8 @@ end
 
 function ExtraKeybindsSettings.getWashAllKeybind()
     return ExtraKeybindsModOptions:getOption("washAllKeybind"):getValue()
+end
+
+function ExtraKeybindsSettings.getSitOnGroundKeybind()
+    return ExtraKeybindsModOptions:getOption("sitOnGroundKeybind"):getValue()
 end
